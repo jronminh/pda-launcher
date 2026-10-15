@@ -41,6 +41,35 @@ Still for Today: something to write brief.md (Termux, `claude -p` on a schedule)
    permission the user turns on), off by default.
 5. **Backup and restore** of the settings, favourites and hidden apps to a file.
 
+## Files: Open with, Details
+
+- **Open with…** in a file's menu (and the selection's ⋮ for one file):
+  Android's chooser for the file's type (`Intent.createChooser` with the same
+  link as a tap), so a file can go to another app than the default once.
+  Also "Open as…" (text, image, audio, video, any) for a file whose type is
+  wrong or missing.
+- **Details** for a file or a folder (one selected, or long-press): name, path
+  (copyable), size (a folder's counted in the background, with its number of
+  files), modified date, type (MIME), whether it is hidden or a link (and to
+  what); for an image its dimensions, for audio and video its length (and
+  title, artist), for an APK its package, version and whether it is installed.
+  Shown in a PopMenu-like card, in the app's look, not a system dialog.
+
+## Remember where one was
+
+The launcher should come back as it was left, also after its process was
+killed (an update, low memory, a reboot), not only while it lives:
+
+- the open tab, and in Today the open part;
+- in Files the place (folder, media root, search) with its history and page,
+  in Applications and Briefcase the page, in Prefs the group;
+- the words typed and not yet sent (Today's entry lines, a search box).
+
+Kept in a small state file (or SharedPreferences) written when the launcher
+leaves the screen (onStop), read in onCreate. A setting "Start where I left
+off" (on by default); off, a start opens the Home tab as now. Home pressed on
+the home screen still goes to the Home tab: that is a choice, not a state.
+
 ## Briefcase: more than files
 
 The Briefcase is "what one carries": let it hold other kinds, each a line with
