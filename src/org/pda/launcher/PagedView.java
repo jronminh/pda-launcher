@@ -147,6 +147,11 @@ public final class PagedView extends LinearLayout {
         return height > 0 ? Math.max(1, height / rowHeight()) : 1;
     }
 
+    /** How many items one page holds, in the mode and the size now. */
+    public int perPage() {
+        return Math.max(1, rows() * (GRID.equals(mode) ? columns : 1));
+    }
+
     private void measurePage() {
         int n = binder == null ? 0 : binder.count();
         perPage = Math.max(1, rows() * (GRID.equals(mode) ? columns : 1));

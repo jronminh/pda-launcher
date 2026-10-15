@@ -33,14 +33,21 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Apps tab: the launchable apps, one page at a time, as a grid (the size in
- * the settings), a list or a detailed list, under a header with search, the view
- * button and a menu (Show/Hide apps, Settings).
+ * The Applications tab, after Pocket PC's Start menu: one page of tiles the
+ * user chose, in the user's order, and a last tile, More, for every app (paged,
+ * sorted, searched). New apps go only to More, marked • until first opened, so
+ * the tiles never change by themselves. The first time, the tiles are the
+ * device's default phone, messages, camera, browser and so on. The view (grid,
+ * list, details) and the grid's size are shared by both; the search covers
+ * every app. Hidden apps (Show/Hide apps) are in neither.
  */
 final class AppsTab {
 
     static final String PREFS = "launcher";
     static final String KEY_HIDDEN = "hidden";
+    static final String KEY_TILES = "tiles";       // the tiles' packages, in order, by commas
+    static final String KEY_OPENED = "opened";     // apps opened since the tiles came (not new any more)
+    static final String KEY_SINCE = "tilesSince";  // when the tiles came: an app installed later is new
 
     /** Icons survive reloads, so a package change only loads the icon of that app. */
     static final Map<String, Drawable> ICONS = new ConcurrentHashMap<>();
@@ -69,7 +76,8 @@ final class AppsTab {
     private final SharedPreferences prefs;
     private final LinearLayout root;
     private final Header header;
-    private final ImageView viewBtn;
+    private final ImageView viewBtn, sortBtn;
+    private boolean more;   // in More (every app), not on the tiles
     private final Pager pager;
     private final PagedView list;
     private final Glance glance;   // the time; the date, the next event, the alarm, the battery
@@ -100,12 +108,14 @@ final class AppsTab {
         // The header: search, sort, the view, the menu.
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("apps.view")), "View",
             v -> PagedView.chooseMode(act, v, Config.get("apps.view"), m -> Config.set(act, "apps.view", m)));
+        sortBtn = Header.sort(act, "apps.sort", "apps.desc", "Name", "Installed", "Updated");
         header = new Header(act, "")
+            .back(() -> showMore(false))
             .search(q -> {
                 pager.setPage(0);
                 applyFilter();
             })
-            .action(Header.sort(act, "apps.sort", "apps.desc", "Name", "Installed", "Updated"))
+            .action(sortBtn)
             .action(viewBtn)
             .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
@@ -117,18 +127,34 @@ final class AppsTab {
 
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
-            @Override public int count() { return shown.size(); }
-            @Override public Drawable icon(int i) { return shown.get(i).icon; }
-            @Override public String title(int i) { return shown.get(i).name; }
+            @Override public int count() { return onTiles() ? tileCount() + 1 : shown.size(); }
+            @Override public Drawable icon(int i) {
+                return isMore(i) ? act.getDrawable(R.drawable.ic_apps) : shown.get(i).icon;
+            }
+            @Override public String title(int i) { return isMore(i) ? "More" : shown.get(i).name; }
             @Override public String summary(int i) {
+                if (isMore(i)) {
+                    int n = newCount();
+                    return visibleCount() + " apps" + (n > 0 ? " · " + n + " new" : "");
+                }
                 App a = shown.get(i);
                 return a.version == null || a.version.isEmpty() ? a.pkg : a.version + " · " + a.pkg;
             }
-            @Override public String mark(int i) { return null; }
+            @Override public String mark(int i) {
+                if (isMore(i)) return newCount() > 0 ? "•" : null;
+                return isNew(shown.get(i)) ? "•" : null;
+            }
             @Override public boolean highlight(int i) { return false; }
             @Override public boolean dim(int i) { return false; }
-            @Override public void click(int i, View v) { launch(shown.get(i).pkg); }
-            @Override public boolean longClick(int i, View v) { appMenu(v, shown.get(i)); return true; }
+            @Override public void click(int i, View v) {
+                if (isMore(i)) showMore(true);
+                else launch(shown.get(i).pkg);
+            }
+            @Override public boolean longClick(int i, View v) {
+                if (isMore(i)) return false;
+                appMenu(v, shown.get(i));
+                return true;
+            }
         });
         applyView();
         root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -161,25 +187,120 @@ final class AppsTab {
     }
 
 
-    /** Back: close the search, then go to the first page. Returns true if it did something. */
+    /** Back: close the search, then from More to the tiles. Returns true if it did something. */
     boolean onBack() {
         if (header.searching()) {
             header.closeSearch();
             return true;
         }
-        if (pager.page() > 0) {
-            pager.setPage(0);
-            list.refresh();
+        if (more) {
+            showMore(false);
             return true;
         }
         return false;
     }
 
-    /** Home pressed on the home screen: the first page, no search. */
+    /** Home pressed on the home screen, or the tab's button again: the tiles, no search. */
     void reset() {
         if (header.searching()) header.closeSearch();
+        more = false;
         pager.setPage(0);
         applyFilter();
+    }
+
+    // --- the tiles and More ----------------------------------------------------------------
+
+    /** The tiles are on screen: not in More, not searching. */
+    private boolean onTiles() {
+        return !more && header.query().isEmpty();
+    }
+
+    private boolean isMore(int i) {
+        return onTiles() && i == tileCount();
+    }
+
+    /** How many of the tiles fit: one page, less the More tile. */
+    private int tileCount() {
+        return Math.min(shown.size(), list.perPage() - 1);
+    }
+
+    private void showMore(boolean on) {
+        if (header.searching()) header.closeSearch();
+        more = on;
+        list.slideNext(on ? 1 : -1);
+        pager.setPage(0);
+        applyFilter();
+    }
+
+    private List<String> tiles() {
+        String s = prefs.getString(KEY_TILES, "");
+        List<String> out = new ArrayList<>();
+        for (String p : s.split(",")) if (!p.isEmpty()) out.add(p);
+        return out;
+    }
+
+    private void saveTiles(List<String> t) {
+        prefs.edit().putString(KEY_TILES, String.join(",", t)).apply();
+        applyFilter();
+    }
+
+    private int visibleCount() {
+        Set<String> hidden = hidden();
+        int n = 0;
+        for (App a : all) if (!hidden.contains(a.pkg)) n++;
+        return n;
+    }
+
+    /** Installed after the tiles came, and not opened since. */
+    private boolean isNew(App a) {
+        return a.installed > prefs.getLong(KEY_SINCE, Long.MAX_VALUE)
+                && !prefs.getStringSet(KEY_OPENED, Collections.emptySet()).contains(a.pkg);
+    }
+
+    private int newCount() {
+        Set<String> hidden = hidden();
+        int n = 0;
+        for (App a : all) if (!hidden.contains(a.pkg) && isNew(a)) n++;
+        return n;
+    }
+
+    /** The first tiles: the device's default app for each common need, those found. */
+    private void firstTiles() {
+        if (prefs.contains(KEY_TILES) || all.isEmpty()) return;
+        PackageManager pm = act.getPackageManager();
+        Intent[] needs = {
+            new Intent(Intent.ACTION_DIAL),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING),
+            new Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA),
+            new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.org")).addCategory(Intent.CATEGORY_BROWSABLE),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR),
+            new Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CONTACTS),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_GALLERY),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_EMAIL),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MUSIC),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MAPS),
+            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR),
+        };
+        Set<String> have = new HashSet<>();
+        for (App a : all) have.add(a.pkg);
+        List<String> t = new ArrayList<>();
+        String sms = android.provider.Telephony.Sms.getDefaultSmsPackage(act);
+        for (int i = 0; i < needs.length; i++) {
+            String pkg = null;
+            if (i == 1 && sms != null) {
+                pkg = sms;
+            } else {
+                try {
+                    android.content.pm.ResolveInfo r = pm.resolveActivity(needs[i], PackageManager.MATCH_DEFAULT_ONLY);
+                    if (r != null && r.activityInfo != null) pkg = r.activityInfo.packageName;
+                } catch (RuntimeException ignore) {}
+            }
+            // "android" is the chooser: no default for that need.
+            if (pkg != null && have.contains(pkg) && !t.contains(pkg)) t.add(pkg);
+        }
+        prefs.edit().putString(KEY_TILES, String.join(",", t))
+                .putLong(KEY_SINCE, System.currentTimeMillis()).apply();
     }
 
     /** The settings changed: the view and the grid's size take effect at once. */
@@ -248,6 +369,7 @@ final class AppsTab {
                 if (gen != generation) return;
                 all.clear();
                 all.addAll(found);
+                firstTiles();
                 applyFilter();
             });
         }).start();
@@ -270,11 +392,25 @@ final class AppsTab {
         shown.clear();
         String q = header.query().toLowerCase(Locale.ROOT);
         Set<String> hidden = hidden();
-        for (App a : all) {
-            if (hidden.contains(a.pkg)) continue;
-            if (q.isEmpty() || a.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(a);
+        if (onTiles()) {
+            // The tiles, in the user's order; one gone or hidden leaves no hole.
+            Map<String, App> byPkg = new java.util.HashMap<>();
+            for (App a : all) byPkg.put(a.pkg, a);
+            for (String p : tiles()) {
+                App a = byPkg.get(p);
+                if (a != null && !hidden.contains(p)) shown.add(a);
+            }
+        } else {
+            for (App a : all) {
+                if (hidden.contains(a.pkg)) continue;
+                if (q.isEmpty() || a.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(a);
+            }
+            sort(shown);
         }
-        sort(shown);
+        boolean inMore = more && q.isEmpty();
+        header.setTitle(inMore ? "All apps" : "");
+        header.showBack(more);
+        sortBtn.setVisibility(onTiles() ? View.GONE : View.VISIBLE);
         list.refresh();
     }
 
@@ -297,7 +433,10 @@ final class AppsTab {
     private void launch(String pkg) {
         Intent i = act.getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) return;
+        Set<String> opened = new HashSet<>(prefs.getStringSet(KEY_OPENED, Collections.emptySet()));
+        if (opened.add(pkg)) prefs.edit().putStringSet(KEY_OPENED, opened).apply();
         start(i);
+        if (more || !header.query().isEmpty()) list.refresh();   // its • is gone
     }
 
     /** Long-press on an app. */
@@ -315,6 +454,19 @@ final class AppsTab {
                 icon = launcherApps.getShortcutIconDrawable(si, act.getResources().getDisplayMetrics().densityDpi);
             } catch (RuntimeException ignore) {}
             pm.getMenu().add(0, 100 + i, i, String.valueOf(label)).setIcon(icon);
+        }
+        final List<String> t = tiles();
+        final int at = t.indexOf(app.pkg);
+        // Up and down: next to the tile shown before or after it (one gone or hidden is skipped).
+        final int pos = onTiles() ? shown.indexOf(app) : -1;
+        final int prev = pos > 0 ? t.indexOf(shown.get(pos - 1).pkg) : -1;
+        final int next = pos >= 0 && pos < tileCount() - 1 ? t.indexOf(shown.get(pos + 1).pkg) : -1;
+        if (at < 0) {
+            pm.getMenu().add(0, 4, 97, "Add to tiles");
+        } else {
+            pm.getMenu().add(0, 5, 97, "Remove from tiles");
+            if (prev >= 0) pm.getMenu().add(0, 6, 98, "Move up");
+            if (next >= 0) pm.getMenu().add(0, 7, 99, "Move down");
         }
         pm.getMenu().add(0, 1, 100, "App info");
         pm.getMenu().add(0, 2, 101, "Hide");
@@ -340,6 +492,19 @@ final class AppsTab {
                     break;
                 }
                 case 3: start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); break;
+                case 4:
+                    if (shownTiles() >= list.perPage() - 1) {
+                        android.widget.Toast.makeText(act, "The tiles are full: remove one first",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    } else {
+                        t.add(app.pkg);
+                        saveTiles(t);
+                        android.widget.Toast.makeText(act, "Added to the tiles", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case 5: t.remove(app.pkg); saveTiles(t); break;
+                case 6: Collections.swap(t, at, prev); saveTiles(t); break;
+                case 7: Collections.swap(t, at, next); saveTiles(t); break;
             }
             return true;
         });
@@ -377,6 +542,16 @@ final class AppsTab {
             // no permission (not the default home) or the user is locked: none
         }
         return out;
+    }
+
+    /** The tiles that would show now (installed, not hidden), whatever is on screen. */
+    private int shownTiles() {
+        Set<String> hidden = hidden();
+        Set<String> have = new HashSet<>();
+        for (App a : all) have.add(a.pkg);
+        int n = 0;
+        for (String p : tiles()) if (have.contains(p) && !hidden.contains(p)) n++;
+        return n;
     }
 
     private void start(Intent i) {
