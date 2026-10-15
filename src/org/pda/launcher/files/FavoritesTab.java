@@ -26,6 +26,7 @@ import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
 import org.pda.launcher.PopMenu;
 import org.pda.launcher.R;
+import org.pda.launcher.TabStrip;
 import org.pda.launcher.Ui;
 import org.pda.launcher.files.Favorites.Item;
 
@@ -44,7 +45,9 @@ import java.util.Locale;
  * rename, move, remove, and a file's Open with, Open as, Details, Show in
  * folder. Added with + (a link, an app or its shortcut), from Files (⋮ › Add
  * to Briefcase), from Applications (long-press › Add to Briefcase) and Share ›
- * Add to Briefcase.
+ * Add to Briefcase. A strip of tabs ({@link TabStrip}) under the header
+ * narrows it to one kind (Files, Folders, Links, Apps, Shortcuts: those it
+ * holds), All first; the tiles, More and the search work within the open one.
  */
 public final class FavoritesTab {
 
@@ -66,6 +69,13 @@ public final class FavoritesTab {
     private List<Item> items = new ArrayList<>();    // in the user's order
     private final List<Item> shown = new ArrayList<>();
     private boolean more;   // in More (every item, sorted), not on the tiles
+    private final TabStrip strip;
+    private final List<String> kinds = new ArrayList<>();   // the strip's: "" (All), then the kinds held
+    private String kind = "";   // the open tab's kind; "" for All
+
+    private static final String FOLDER = "folder";
+    private static final String[] KINDS = { Item.FILE, FOLDER, Item.URL, Item.APP, Item.SHORTCUT };
+    private static final String[] KIND_NAMES = { "Files", "Folders", "Links", "Apps", "Shortcuts" };
 
     private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "favorites.")) onConfig(); };
 
@@ -94,6 +104,8 @@ public final class FavoritesTab {
                 .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
+        strip = new TabStrip(act).onPick(i -> showKind(kinds.get(i)));
+        root.addView(strip);
 
         banner = Ui.banner(act);
         root.addView(banner);
@@ -106,7 +118,7 @@ public final class FavoritesTab {
             }
             @Override public String title(int i) { return isMore(i) ? "More" : shown.get(i).title; }
             @Override public String summary(int i) {
-                return isMore(i) ? items.size() + " items" : describe(shown.get(i));
+                return isMore(i) ? inKind().size() + " items" : describe(shown.get(i));
             }
             @Override public String mark(int i) { return null; }
             @Override public boolean highlight(int i) { return false; }
@@ -147,10 +159,11 @@ public final class FavoritesTab {
         show();
     }
 
-    /** The tab's button tapped again: the tiles, no search. */
+    /** The tab's button tapped again: All's tiles, no search. */
     public void toStart() {
         if (header.searching()) header.closeSearch();
         more = false;
+        kind = "";
         pager.setPage(0);
         show();
     }
@@ -159,6 +172,7 @@ public final class FavoritesTab {
     public boolean onBack() {
         if (header.searching()) { header.closeSearch(); return true; }
         if (more) { showMore(false); return true; }
+        if (!kind.isEmpty()) { showKind(""); return true; }
         return false;
     }
 
@@ -191,11 +205,56 @@ public final class FavoritesTab {
 
     /** More items than a page: the last tile is More. */
     private boolean overflow() {
-        return items.size() > list.perPage();
+        return inKind().size() > list.perPage();
     }
 
     private boolean isMore(int i) {
         return onTiles() && overflow() && i == list.perPage() - 1;
+    }
+
+    /** The kind of {@code it} as the strip names it: a file's folder is a folder. */
+    private static String kindOf(Item it) {
+        if (it.file() != null) return it.file().isDirectory() ? FOLDER : Item.FILE;
+        return it.kind;
+    }
+
+    /** The items of the open tab's kind, in the user's order. */
+    private List<Item> inKind() {
+        if (kind.isEmpty()) return items;
+        List<Item> out = new ArrayList<>();
+        for (Item it : items) if (kind.equals(kindOf(it))) out.add(it);
+        return out;
+    }
+
+    /** The strip: All and each kind held (none when the Briefcase is empty), the open one marked. */
+    private void fillStrip() {
+        kinds.clear();
+        List<String> names = new ArrayList<>();
+        kinds.add("");
+        names.add("All");
+        for (int k = 0; k < KINDS.length; k++) {
+            for (Item it : items) {
+                if (KINDS[k].equals(kindOf(it))) {
+                    kinds.add(KINDS[k]);
+                    names.add(KIND_NAMES[k]);
+                    break;
+                }
+            }
+        }
+        if (!kinds.contains(kind)) kind = "";   // its last item went
+        strip.setTabs(names.toArray(new String[0]));
+        strip.setSelected(kinds.indexOf(kind));
+        strip.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private void showKind(String k) {
+        if (k.equals(kind)) return;
+        int dir = kinds.indexOf(k) < kinds.indexOf(kind) ? -1 : 1;
+        kind = k;
+        more = false;
+        list.slideNext(dir);
+        pager.setPage(0);
+        show();
     }
 
     private void showMore(boolean on) {
@@ -210,7 +269,8 @@ public final class FavoritesTab {
     private void show() {
         shown.clear();
         String q = header.query().toLowerCase(Locale.ROOT);
-        for (Item it : items) if (q.isEmpty() || it.title.toLowerCase(Locale.ROOT).contains(q)) shown.add(it);
+        fillStrip();
+        for (Item it : inKind()) if (q.isEmpty() || it.title.toLowerCase(Locale.ROOT).contains(q)) shown.add(it);
         if (!onTiles()) sort(shown);
         header.setTitle(more && q.isEmpty() ? "All items" : "");
         header.showBack(more);
@@ -227,7 +287,7 @@ public final class FavoritesTab {
     /** "Briefcase", then how many of each kind: on the tiles only, as Prefs shows its banner. */
     private void fillBanner() {
         banner.removeAllViews();
-        banner.setVisibility(onTiles() && !items.isEmpty() ? View.VISIBLE : View.GONE);
+        banner.setVisibility(onTiles() && kind.isEmpty() && !items.isEmpty() ? View.VISIBLE : View.GONE);
         int files = 0, folders = 0, links = 0, apps = 0;
         for (Item it : items) {
             if (it.file() != null) {

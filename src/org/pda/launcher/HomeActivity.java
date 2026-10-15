@@ -142,7 +142,7 @@ public class HomeActivity extends Activity {
         boolean resume = Config.getBool("launcher.resume") && st.contains("tab");
         int start = resume ? st.getInt("tab", homeTab()) : homeTab();
         if (resume) {
-            today.show(st.getInt("todayPart", TodayTab.START));
+            today.show(st.getInt("todayPart", TodayTab.AGENDA));
             files.restore(st.getString("filesPlace", null));
         }
         if (reopenLauncherPrefs) {
@@ -292,7 +292,7 @@ public class HomeActivity extends Activity {
             }
         }
         if (i == null || !i.hasExtra(EXTRA_PART)) return;
-        int p = i.getIntExtra(EXTRA_PART, TodayTab.START);
+        int p = i.getIntExtra(EXTRA_PART, TodayTab.AGENDA);
         i.removeExtra(EXTRA_PART);
         if (tab == TODAY) today.show(p);
     }
@@ -321,7 +321,7 @@ public class HomeActivity extends Activity {
             case APPS: apps.reset(); break;
             case FAVORITES: favorites.toStart(); break;
             case FILES: files.toStart(); break;
-            case TODAY: today.show(TodayTab.START); break;
+            case TODAY: today.show(TodayTab.AGENDA); break;
             default: settingsTab.open(SettingsScreen.GENERAL);
         }
     }

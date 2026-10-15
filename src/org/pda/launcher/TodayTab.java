@@ -33,9 +33,9 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * The Today tab, the PDA's information centre, in the look of the other tabs:
- * the header, a banner (the date, the next alarm, today's events) and tiles,
- * each a part with its state, opened with ‹ to come back (as Prefs' groups):
+ * The Today tab, the PDA's information centre: the header (+ on the agenda,
+ * ⋮), then a strip of tabs ({@link TabStrip}) for its parts, the open tasks'
+ * and the captures' counts in their names:
  *
  * <ul>
  *   <li><b>Agenda</b>: the day at a glance, today's calendar, the next alarm, the
@@ -50,7 +50,8 @@ import java.util.List;
  */
 final class TodayTab {
 
-    static final int START = 0, AGENDA = 1, TASKS = 2, INBOX = 3, BOARD = 4;
+    // Kept as they were numbered (a start of tiles was 0), for the state saved and intents.
+    static final int AGENDA = 1, TASKS = 2, INBOX = 3, BOARD = 4;
     private static final String[] PARTS = { "", "Agenda", "Tasks", "Inbox", "Board" };
 
     private final Activity act;
@@ -58,11 +59,8 @@ final class TodayTab {
     private final LinearLayout root;
     private final Header header;
     private final ImageView addBtn;
+    private final TabStrip strip;
     private final FrameLayout body;
-    // The start: a banner over the parts' tiles.
-    private final LinearLayout banner;
-    private final PagedView tiles;
-    private final String[] tileState = new String[6];   // each tile's line, read when the start shows
     private final View[] partViews = new View[PARTS.length];
     private int part = -1;
     private final Host host;
@@ -93,48 +91,20 @@ final class TodayTab {
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
 
-        // The header, as the other tabs': ‹ and the part's name inside a part; + and ⋮.
+        // The header, as the other tabs': + and ⋮; the parts' tabs under it.
         addBtn = Ui.action(act, R.drawable.ic_add, "Add", this::addMenu);
         header = new Header(act, "")
-                .back(() -> show(START))
                 .action(addBtn)
                 .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
+        strip = new TabStrip(act).onPick(i -> show(AGENDA + i));
+        strip.setTabs(PARTS[AGENDA], PARTS[TASKS], PARTS[INBOX], PARTS[BOARD]);
+        root.addView(strip);
 
         body = new FrameLayout(act);
         root.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        // The start: the banner (tap for the agenda) over the tiles, as Prefs.
-        LinearLayout start = new LinearLayout(act);
-        start.setOrientation(LinearLayout.VERTICAL);
-        banner = Ui.banner(act);
-        banner.setOnClickListener(v -> show(AGENDA));
-        start.addView(banner);
-        Pager tilePager = new Pager(act);
-        tiles = new PagedView(act, tilePager);
-        tiles.setMode(PagedView.GRID);
-        tiles.setGrid(4, 0);
-        final int[] icons = { R.drawable.ic_calendar, R.drawable.ic_task_done, R.drawable.ic_inbox,
-                R.drawable.ic_pen, R.drawable.ic_folder };
-        final String[] names = { "Agenda", "Tasks", "Inbox", "Board", "Folder" };
-        tiles.setBinder(new PagedView.Binder() {
-            @Override public int count() { return names.length; }
-            @Override public Drawable icon(int i) { return Ui.icon(act, icons[i]); }
-            @Override public String title(int i) { return names[i]; }
-            @Override public String summary(int i) { return tileState[i]; }
-            @Override public String mark(int i) { return null; }
-            @Override public boolean highlight(int i) { return false; }
-            @Override public boolean dim(int i) { return false; }
-            @Override public void click(int i, View v) {
-                if (i == 4) host.openFolder(PdaStore.folder());
-                else show(AGENDA + i);
-            }
-            @Override public boolean longClick(int i, View v) { return false; }
-        });
-        start.addView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        start.addView(tilePager);
-        partViews[START] = start;
+        partViews[0] = new View(act);   // the place of the start of tiles there was
 
         // Agenda: a column of short blocks.
         todayList = new LinearLayout(act);
@@ -186,7 +156,7 @@ final class TodayTab {
             v.setVisibility(View.GONE);
             body.addView(v);
         }
-        show(START);
+        show(AGENDA);
     }
 
     View view() {
@@ -274,42 +244,41 @@ final class TodayTab {
         return part;
     }
 
-    /** Back: from a part to the start. */
+    /** Back: from another part to the agenda. */
     boolean onBack() {
-        if (part == START) return false;
-        show(START);
+        if (part == AGENDA) return false;
+        show(AGENDA);
         return true;
     }
 
     /** The calendar permission was answered. */
     void onCalendarPermission() {
-        if (part == AGENDA || part == START) refresh();
+        if (part == AGENDA) refresh();
     }
 
     void show(int which) {
-        if (which < START || which > BOARD) which = START;
+        if (which < AGENDA || which > BOARD) which = AGENDA;
         if (which == part) return;
         int from = part;
         part = which;
         for (int i = 0; i < PARTS.length; i++) partViews[i].setVisibility(i == which ? View.VISIBLE : View.GONE);
-        header.setTitle(PARTS[which]);
-        header.showBack(which != START);
-        addBtn.setVisibility(which == START ? View.VISIBLE : View.GONE);
+        strip.setSelected(which - AGENDA);
+        addBtn.setVisibility(which == AGENDA ? View.VISIBLE : View.GONE);   // Tasks and Inbox have their own line
         if (which != BOARD) board.onHide();
         hideIme();
-        if (from >= 0) Anim.slideIn(partViews[which], which == START ? -1 : 1);
+        if (from >= 0) Anim.slideIn(partViews[which], which < from ? -1 : 1);
         refresh();
     }
 
     private void refresh() {
-        if (!storageAllowed() && part != START) {
+        if (!storageAllowed()) {
             showNoStorage();
             return;
         }
         // The part shown is the part chosen (the storage message may have taken its place).
         for (int i = 0; i < PARTS.length; i++) partViews[i].setVisibility(i == part ? View.VISIBLE : View.GONE);
+        counts();
         switch (part) {
-            case START: drawStart(); break;
             case AGENDA: drawToday(); break;
             case TASKS: tasks = PdaStore.tasks(); taskList.refresh(); break;
             case INBOX: notes = PdaStore.inboxNotes(); noteList.refresh(); break;
@@ -317,65 +286,35 @@ final class TodayTab {
         }
     }
 
-    // --- the start ----------------------------------------------------------------------------
-
-    /** The banner (the date, the next alarm, today's events) and each tile's line. */
-    private void drawStart() {
-        long now = System.currentTimeMillis();
-        boolean files = storageAllowed();
-        boolean cal = act.checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED;
-        List<String[]> events = cal ? events(now) : new ArrayList<>();
-
-        banner.removeAllViews();
-        banner.addView(Ui.bannerTitle(act, DateUtils.formatDateTime(act, now, DateUtils.FORMAT_SHOW_WEEKDAY
-                | DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_YEAR)));
-        StringBuilder sb = new StringBuilder();
-        AlarmManager am = (AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
-        AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
-        if (alarm != null) sb.append("Alarm ").append(Glance.when(act, alarm.getTriggerTime(), now));
-        if (cal) {
-            if (sb.length() > 0) sb.append(" · ");
-            sb.append(events.isEmpty() ? "Nothing on the calendar" : events.size() + (events.size() == 1 ? " event" : " events") + " today");
-        }
-        if (sb.length() > 0) banner.addView(Ui.bannerLine(act, sb));
-
-        tileState[0] = !cal ? "Calendar not allowed" : events.isEmpty() ? "Nothing today"
-                : "Next: " + events.get(0)[0] + " " + events.get(0)[1];
-        if (files) {
-            int open = 0, late = 0;
-            String today = PdaStore.today();
-            for (PdaStore.Task t : PdaStore.tasks()) {
-                if (t.done) continue;
-                open++;
-                if (t.due != null && t.due.compareTo(today) <= 0) late++;
-            }
-            tileState[1] = open == 0 ? "Nothing to do" : open + " open" + (late > 0 ? " · " + late + " due" : "");
-            int n = PdaStore.inboxNotes().size();
-            tileState[2] = n == 0 ? "Empty" : n + (n == 1 ? " capture" : " captures");
-        } else {
-            tileState[1] = tileState[2] = "Storage not allowed";
-        }
-        tileState[3] = board.isEmpty() ? "Empty" : "Written on";
-        tileState[4] = Config.get("today.folder");
-        tiles.refresh();
+    /** The open tasks and the captures, counted in their tabs' names. */
+    private void counts() {
+        int open = 0;
+        for (PdaStore.Task t : PdaStore.tasks()) if (!t.done) open++;
+        int notes = PdaStore.inboxNotes().size();
+        strip.setName(TASKS - AGENDA, open > 0 ? PARTS[TASKS] + " " + open : PARTS[TASKS]);
+        strip.setName(INBOX - AGENDA, notes > 0 ? PARTS[INBOX] + " " + notes : PARTS[INBOX]);
     }
 
-    /** + on the start: a task or a capture, in the app's own prompt. */
+    /** + on the agenda: a task or a capture, in the app's own prompt. */
     private void addMenu(View anchor) {
         PopMenu m = new PopMenu(act, anchor);
         m.add(0, 1, 0, "Task…");
         m.add(0, 2, 1, "Capture…");
         m.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) {
-                new Prompt(act, "Add a task").field("(A) text due:" + PdaStore.today(), null)
-                        .ok("Add", v -> { if (!v[0].isEmpty()) addTask(v[0]); }).show(root);
-            } else {
-                new Prompt(act, "Capture").field("Anything to keep", null)
-                        .ok("Add", v -> { if (!v[0].isEmpty()) capture(v[0]); }).show(root);
-            }
+            addPrompt(item.getItemId() == 1);
             return true;
         });
         m.show();
+    }
+
+    private void addPrompt(boolean task) {
+        if (task) {
+            new Prompt(act, "Add a task").field("(A) text due:" + PdaStore.today(), null)
+                    .ok("Add", v -> { if (!v[0].isEmpty()) addTask(v[0]); }).show(root);
+        } else {
+            new Prompt(act, "Capture").field("Anything to keep", null)
+                    .ok("Add", v -> { if (!v[0].isEmpty()) capture(v[0]); }).show(root);
+        }
     }
 
     // --- Agenda -------------------------------------------------------------------------------

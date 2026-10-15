@@ -98,7 +98,7 @@ killed (an update, low memory, a reboot), not only while it lives:
 A tab's button is the way back to its start, whatever was remembered: going
 to a tab opens it as it was left; tapping the button of the tab already open
 takes it to its start at once (Applications: page 1, no search; Briefcase:
-page 1; Files: the first screen, the history cleared; Today: its tiles;
+page 1; Files: the first screen, the history cleared; Today: its agenda;
 Prefs: the tiles), with no other state lost.
 
 Kept in a small state file (or SharedPreferences) written when the launcher

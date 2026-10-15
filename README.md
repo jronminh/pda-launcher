@@ -34,9 +34,9 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   (`LauncherApps.Callback`). The header menu (⋮) has Show/Hide apps, the grid's
   size, the glance line and its next event.
 - **Briefcase**: what you carry, as tiles in the look of Applications (a banner
-  counts them by kind): files,
-  folders, links, apps and apps' shortcuts, in your order (a More tile when
-  they pass a page). Tap to open (a file in its viewer, a folder in Files);
+  counts them by kind): files, folders, links, apps and apps' shortcuts, in
+  your order (a More tile when they pass a page). Tabs across the top narrow it
+  to one kind (All, Files, Folders, Links, Apps, Shortcuts: those it holds). Tap to open (a file in its viewer, a folder in Files);
   long-press to rename, move, remove, and for a file Open with, Open as,
   Details, Show in folder. Add with + (a link, an app or one of its shortcuts), from Files
   (⋮ › Add to Briefcase), Applications (More, long-press › Add to Briefcase)
@@ -50,11 +50,11 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   USB drive), added with "Add a location" and browsed in the same look: open,
   download, upload, paste what Files copied, rename, delete. See
   [docs/files.md](docs/files.md).
-- **Today**: the PDA's information centre, in the look of the other tabs: a
-  banner (the date, the next alarm, today's events; tap for the agenda) over
-  tiles, each a part with its state (Agenda's next event, the open and due
-  tasks, the captures), opened with ‹ to come back; + adds a task or a
-  capture; the Folder tile opens the files in Files.
+- **Today**: the PDA's information centre, its parts in tabs across the top
+  (Agenda, Tasks, Inbox, Board; the open tasks and the captures counted in
+  their names); + on the agenda adds a task or a capture; ⋮ opens the folder
+  in Files. Tabs that no longer fit on one line go on to more lines, in Today
+  and the Briefcase alike.
   - *Agenda*: today's calendar, the next alarm, the three most pressing tasks,
     the inbox, and a brief if something wrote one.
   - *Tasks*: `todo.txt` (the todo.txt format: `(A)` priorities, `due:` dates);
@@ -106,7 +106,7 @@ a selection's actions (Copy, Move, Delete, Share, more) are icons over small
 labels, and so is *Paste here*.
 
 Tapping the button of the tab already open takes it to its start (Files to its
-first screen, Today to its tiles...). After the launcher's process was
+first screen, Today to its agenda, the Briefcase to All...). After the launcher's process was
 killed (an update, low memory, a reboot) it starts where it was left: the tab,
 Today's part, Files' place (Prefs › Launcher › Start where I left off).
 
