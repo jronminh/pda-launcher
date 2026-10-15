@@ -64,7 +64,7 @@ final class AppsTab {
     }
 
     private final Activity act;
-    private final Runnable openSettings;
+    private final java.util.function.Consumer<String> openSettings;
     private final LauncherApps launcherApps;
     private final List<App> all = new ArrayList<>();
     private final List<App> shown = new ArrayList<>();
@@ -89,7 +89,8 @@ final class AppsTab {
         @Override public void onPackagesUnsuspended(String[] pkgs, UserHandle user) { changed(pkgs); }
     };
 
-    AppsTab(Activity act, Runnable openSettings) {
+    /** {@code openSettings} opens a settings screen: "apps" for this tab's. */
+    AppsTab(Activity act, java.util.function.Consumer<String> openSettings) {
         this.act = act;
         this.openSettings = openSettings;
         launcherApps = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
@@ -216,10 +217,12 @@ final class AppsTab {
     private void showMenu(View anchor) {
         PopupMenu pm = new PopupMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Show/Hide apps");
-        pm.getMenu().add(0, 2, 1, "Settings");
+        pm.getMenu().add(0, 2, 1, "Apps settings");
         pm.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) showHideDialog();
-            else openSettings.run();
+            switch (item.getItemId()) {
+                case 1: showHideDialog(); break;
+                default: openSettings.accept(SettingsScreen.APPS);
+            }
             return true;
         });
         pm.show();

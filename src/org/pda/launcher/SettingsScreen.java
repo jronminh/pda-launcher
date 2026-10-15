@@ -42,6 +42,13 @@ final class SettingsScreen {
     private final LinearLayout list;
     private final Pager pager;
     private int rowsPerPage = 8;
+    private final android.widget.TextView title;
+    private final android.widget.TextView back;
+    private String scope = GENERAL;
+    private boolean fromGeneral;   // a tab's settings opened from the general screen: Back returns there
+
+    /** What the screen shows: the general settings, or one tab's. */
+    static final String GENERAL = "general", APPS = "apps", FAVORITES = "favorites", FILES = "files", NOTE = "note";
     private static final String[] VIEWS = { "details:Details", "list:List", "grid:Grid" };
 
     private final Config.Listener onConfig = this::render;
@@ -51,6 +58,10 @@ final class SettingsScreen {
         View view();
     }
 
+    /**
+     * @param close closes the screen; null when the screen is the Settings tab,
+     *              which stays (Back then leaves it to the launcher).
+     */
     SettingsScreen(Activity act, Runnable showHideApps, Runnable close) {
         this.act = act;
         this.showHideApps = showHideApps;
@@ -62,10 +73,11 @@ final class SettingsScreen {
         // The header: ‹ (back to the tab it came from), then the title.
         LinearLayout titleBox = new LinearLayout(act);
         titleBox.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        android.widget.TextView back = Ui.textAction(act, "‹", v -> close.run());
+        back = Ui.textAction(act, "‹", v -> onBack());
         back.setTextSize(28);
         titleBox.addView(back);
-        titleBox.addView(Ui.title(act, "Settings"));
+        title = Ui.title(act, "Settings");
+        titleBox.addView(title);
         LinearLayout header = Ui.header(act, titleBox);
         header.setPadding(0, 0, Ui.dp(act, 4), 0);
         root.addView(header);
@@ -109,6 +121,17 @@ final class SettingsScreen {
         return root;
     }
 
+    /** Show the settings of {@code scope} (GENERAL or a tab), from the first page. */
+    void open(String scope) {
+        fromGeneral = false;
+        this.scope = scope;
+        title.setText(GENERAL.equals(scope) ? "Settings"
+                : scope.substring(0, 1).toUpperCase(Locale.ROOT) + scope.substring(1) + " settings");
+        showBack();
+        pager.setPage(0);
+        onShow();
+    }
+
     void onShow() {
         Config.addListener(onConfig);
         render();
@@ -118,34 +141,67 @@ final class SettingsScreen {
         Config.removeListener(onConfig);
     }
 
-    /** Back closes the screen, as ‹ does. */
-    void onBack() {
+    /**
+     * Back (and ‹): from a tab's settings reached through the general screen,
+     * back to it; otherwise close the screen.
+     * @return false when there is nothing to go back to (the Settings tab).
+     */
+    boolean onBack() {
+        if (fromGeneral) { open(GENERAL); return true; }
+        if (close == null) return false;
         close.run();
+        return true;
+    }
+
+    private void openTab(String tab) {
+        open(tab);
+        fromGeneral = true;
+        showBack();
+    }
+
+    /** The Settings tab shows ‹ only inside a tab's settings. */
+    private void showBack() {
+        back.setVisibility(close != null || fromGeneral ? View.VISIBLE : View.GONE);
+        title.setPadding(back.getVisibility() == View.VISIBLE ? 0 : Ui.dp(act, 16), 0, 0, 0);
     }
 
     // --- the list ------------------------------------------------------------------------
 
     private List<Entry> entries() {
         List<Entry> e = new ArrayList<>();
+        switch (scope) {
+            case APPS:
+                e.add(choice("apps.view", "View", VIEWS));
+                e.add(number("apps.columns", "Grid columns"));
+                e.add(number("apps.rows", "Grid rows"));
+                e.add(action("Show/Hide apps", "Which apps the tab lists", showHideApps));
+                return e;
+            case FAVORITES:
+                e.add(choice("favorites.view", "View", VIEWS));
+                return e;
+            case FILES:
+                e.add(choice("files.view", "View", VIEWS));
+                e.add(toggle("files.showHidden", "Show hidden files"));
+                e.add(link("Storage access", storageGranted() ? "Allowed" : "Not allowed", appDetails()));
+                return e;
+            case NOTE:
+                e.add(choice("note.textSize", "Text size"));
+                return e;
+            default:
+                break;
+        }
+        // The general settings: the launcher, Android's screens, about.
         e.add(section("Launcher"));
         e.add(choice("launcher.homeTab", "Home button opens"));
         e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
                 new Intent(Settings.ACTION_HOME_SETTINGS)));
-        e.add(action("Show/Hide apps", "Which apps the Apps tab lists", showHideApps));
-        e.add(choice("apps.view", "Apps view", VIEWS));
-        e.add(number("apps.columns", "App grid columns"));
-        e.add(number("apps.rows", "App grid rows"));
 
-        e.add(section("Favorites"));
-        e.add(choice("favorites.view", "Favorites view", VIEWS));
-
-        e.add(section("Files"));
-        e.add(choice("files.view", "Files view", VIEWS));
-        e.add(toggle("files.showHidden", "Show hidden files"));
-        e.add(link("Storage access", storageGranted() ? "Allowed" : "Not allowed", appDetails()));
-
-        e.add(section("Note"));
-        e.add(choice("note.textSize", "Text size"));
+        // Each tab's own settings, also reached from the tab's menu.
+        e.add(section("Tabs"));
+        e.add(action("Apps", "View, grid size, Show/Hide apps", () -> openTab(APPS)));
+        e.add(action("Favorites", "View", () -> openTab(FAVORITES)));
+        e.add(action("Files", "View, hidden files, storage access", () -> openTab(FILES)));
+        e.add(action("Note", "Text size", () -> openTab(NOTE)));
 
         e.add(section("Android"));
         e.add(link("Wi-Fi", wifiState(), new Intent(Settings.ACTION_WIFI_SETTINGS)));

@@ -27,6 +27,7 @@ final class NoteTab {
     private static final int SMALL = 18, MEDIUM = 26, LARGE = 36;   // sp
 
     private final Activity act;
+    private final java.util.function.Consumer<String> openSettings;
     private final LinearLayout root;
     private final TextView lockBtn;
     private final EditText board;
@@ -35,8 +36,9 @@ final class NoteTab {
 
     private final Config.Listener onConfig = this::applySize;
 
-    NoteTab(Activity act) {
+    NoteTab(Activity act, java.util.function.Consumer<String> openSettings) {
         this.act = act;
+        this.openSettings = openSettings;
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -125,8 +127,10 @@ final class NoteTab {
     private void showMenu(View anchor) {
         PopupMenu pm = new PopupMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Clear").setEnabled(!locked && board.length() > 0);
+        pm.getMenu().add(0, 2, 1, "Note settings");
         pm.setOnMenuItemClickListener(item -> {
-            board.setText("");
+            if (item.getItemId() == 1) board.setText("");
+            else openSettings.accept(SettingsScreen.NOTE);
             return true;
         });
         pm.show();

@@ -19,13 +19,13 @@ import org.pda.launcher.files.FilesTab;
 import java.util.Locale;
 
 /**
- * The home screen: four tabs (Apps, Favorites, Files, Note) over a tab bar at the
- * bottom, and the Settings screen, opened from the Apps menu over the tabs.
+ * The home screen: five tabs (Apps, Favorites, Files, Note, Settings) over a tab
+ * bar at the bottom. A tab's own settings, opened from its menu, cover the tabs.
  */
 public class HomeActivity extends Activity {
 
-    public static final int APPS = 0, FAVORITES = 1, FILES = 2, NOTE = 3;
-    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Note" };
+    public static final int APPS = 0, FAVORITES = 1, FILES = 2, NOTE = 3, SETTINGS = 4;
+    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Note", "Settings" };
 
     /** An intent extra: the tab to show. */
     public static final String EXTRA_TAB = "tab";
@@ -34,7 +34,8 @@ public class HomeActivity extends Activity {
     private FavoritesTab favorites;
     private FilesTab files;
     private NoteTab note;
-    private SettingsScreen settings;
+    private SettingsScreen settings;      // a tab's settings, over the tabs
+    private SettingsScreen settingsTab;   // the Settings tab: the general settings
     private Config.Listener onConfig;
     private final TextView[] buttons = new TextView[NAMES.length];
     private int tab = -1;
@@ -82,17 +83,26 @@ public class HomeActivity extends Activity {
         setContentView(root);
 
         apps = new AppsTab(this, this::openSettings);
-        favorites = new FavoritesTab(this, dir -> {
-            files.openFolder(dir);
-            show(FILES);
+        favorites = new FavoritesTab(this, new FavoritesTab.Host() {
+            @Override public void openFolder(java.io.File dir) {
+                files.openFolder(dir);
+                show(FILES);
+            }
+            @Override public void openSettings(String scope) {
+                HomeActivity.this.openSettings(scope);
+            }
         });
-        files = new FilesTab(this);
-        note = new NoteTab(this);
+        files = new FilesTab(this, this::openSettings);
+        note = new NoteTab(this, this::openSettings);
         settings = new SettingsScreen(this, apps::showHideDialog, this::closeSettings);
+        settingsTab = new SettingsScreen(this, apps::showHideDialog, null);
+        settingsTab.open(SettingsScreen.GENERAL);
+        settingsTab.onHide();
         content.addView(apps.view());
         content.addView(favorites.view());
         content.addView(files.view());
         content.addView(note.view());
+        content.addView(settingsTab.view());
         content.addView(settings.view());
         settings.view().setVisibility(View.GONE);
         onConfig = apps::onConfig;
@@ -130,12 +140,14 @@ public class HomeActivity extends Activity {
         if (settingsOpen) settings.onShow();   // Android's state may have changed
         else if (tab == FILES) files.onResume();
         else if (tab == FAVORITES) favorites.onShow();
+        else if (tab == SETTINGS) settingsTab.onShow();   // Android's state may have changed
     }
 
     @Override
     protected void onDestroy() {
         Config.removeListener(onConfig);
         settings.onHide();
+        settingsTab.onHide();
         note.onDestroy();
         files.onDestroy();
         favorites.onDestroy();
@@ -152,6 +164,7 @@ public class HomeActivity extends Activity {
         }
         if (tab == FILES && files.onBack()) return;
         if (tab == FAVORITES && favorites.onBack()) return;
+        if (tab == SETTINGS && settingsTab.onBack()) return;
         show(APPS);
     }
 
@@ -174,6 +187,9 @@ public class HomeActivity extends Activity {
         favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
         note.view().setVisibility(which == NOTE ? View.VISIBLE : View.GONE);
+        settingsTab.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
+        if (which == SETTINGS) settingsTab.onShow();
+        else settingsTab.onHide();
         if (which == FAVORITES) favorites.onShow();
         if (which == FILES) files.onShow();
         else files.onHide();
@@ -185,12 +201,19 @@ public class HomeActivity extends Activity {
         }
     }
 
-    /** Settings covers the tabs; the tab bar stays, and any tab closes it. */
-    private void openSettings() {
+    /** A tab's settings cover the tabs; the tab bar stays, and any tab closes them.
+     *  The general settings are the Settings tab. */
+    private void openSettings(String scope) {
+        if (SettingsScreen.GENERAL.equals(scope)) {
+            closeSettings();
+            show(SETTINGS);
+            return;
+        }
+        note.onHide();
         settingsOpen = true;
         settings.view().setVisibility(View.VISIBLE);
         settings.view().bringToFront();
-        settings.onShow();
+        settings.open(scope);
     }
 
     private void closeSettings() {

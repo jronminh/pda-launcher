@@ -2,13 +2,13 @@
 
 Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0).
 
-A home screen with four tabs on a bar at the bottom (no swiping):
+A home screen with five tabs on a bar at the bottom (no swiping):
 
 - **Apps**: a grid of launchable apps (4 x 6 by default), one page at a time
   (`‹ 1/3 ›` or a horizontal swipe), with search in the header. No widgets, no
   wallpaper. Tap to open; long-press for App info, Hide, Uninstall. The grid
   follows installs, removals and suspended apps (`LauncherApps.Callback`). The
-  header menu (⋮) has Show/Hide apps and **Settings**.
+  header menu (⋮) has Show/Hide apps and Apps settings.
 - **Favorites**: favourite files and folders, in the order they were added. Tap a
   folder to show it in Files, a file to open it; long-press to reorder, show in
   folder, or remove. Items are added from Files (select, ⋮ › Add to favorites).
@@ -20,18 +20,20 @@ A home screen with four tabs on a bar at the bottom (no swiping):
   keyboard); ⋮ › Clear empties it.
 
 Apps, Favorites and Files each show their items one of three ways, chosen with
-the view button in the header (or in Settings) and kept per tab: **Details**
+the view button in the header (or in the tab's settings) and kept per tab: **Details**
 (icon, name and a line of details), **List** (a small icon and the name) or
 **Grid** (a big icon over the name). Every way turns pages; the Apps grid takes
 its columns and rows from Settings. The first screen of Files (the roots under
 the storage bar) is always a detailed list.
 
-**Settings** (Apps › ⋮) covers the tabs until Back, ‹ or a tab: the Home tab,
-the default home app, Show/Hide apps, the grid size, the view of each tab,
-hidden files, the note's
-text size, and shortcuts to Android's basic screens (Wi-Fi, Bluetooth, display,
-sound, battery, storage, apps, date, language, developer options, about) with
-their state where an app can read it.
+**Settings.** Each tab has its own, in its menu (⋮ › *Apps settings*, *Favorites
+settings*, *Files settings*, *Note settings*): the view, the grid size and
+Show/Hide apps, hidden files and storage access, the note's text size; they
+cover the tabs until Back, ‹ or a tab. The **Settings** tab holds the rest: the tab Home opens,
+the default home app, a way into each tab's settings, and shortcuts to
+Android's basic screens (Wi-Fi, Bluetooth, display, sound, battery, storage,
+apps, date, language, developer options, about) with their state where an app
+can read it. From there, *Tabs* opens a tab's settings in place (Back returns).
 
 Back returns to Apps; Home on the home screen opens the tab chosen in Settings
 (Apps by default, on its first page), Home from another app comes back to the

@@ -24,7 +24,7 @@ public final class Config {
     /** key -> type, default, constraint (a range "lo-hi" or values "a|b|c"). */
     private static final Map<String, String[]> SCHEMA = new LinkedHashMap<>();
     static {
-        SCHEMA.put("launcher.homeTab", new String[] { "enum", "apps", "apps|favorites|files|note" });
+        SCHEMA.put("launcher.homeTab", new String[] { "enum", "apps", "apps|favorites|files|note|settings" });
         SCHEMA.put("apps.columns", new String[] { "int", "4", "3-6" });
         SCHEMA.put("apps.rows", new String[] { "int", "6", "4-8" });
         SCHEMA.put("files.showHidden", new String[] { "bool", "false", "" });
