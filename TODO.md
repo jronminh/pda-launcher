@@ -41,6 +41,25 @@ Still for Today: something to write brief.md (Termux, `claude -p` on a schedule)
    permission the user turns on), off by default.
 5. **Backup and restore** of the settings, favourites and hidden apps to a file.
 
+## Briefcase: more than files
+
+The Briefcase is "what one carries": let it hold other kinds, each a line with
+its kind in front (`file:/sdcard/...`, `shortcut:com.app/id`, `app:com.app`,
+`url:https://...`, `contact:content://...`, `cmd:~/bin/brief.sh`); a line with
+no kind is a file, so the list of today stays as it is. Order, views, search
+and following renames keep working.
+
+| Kind | Added from | A tap |
+| --- | --- | --- |
+| File, folder (done) | Files › Add to Briefcase | opens it, or the folder in Files |
+| App shortcut | Applications, long-press, next to each shortcut | starts it (pinned with `LauncherApps.pinShortcuts`, so the app cannot drop it) |
+| App | Applications, long-press › Add to Briefcase | opens the app |
+| Link | + › Link, or Share › Add to Briefcase from a browser | opens the browser |
+| Contact | + › Contact (Android's picker: no contacts permission) | Call or Message |
+| Termux command | + › Command | runs it in Termux (`com.termux.RUN_COMMAND`; needs `allow-external-apps = true` in `~/.termux/termux.properties` and the RUN_COMMAND permission granted once) |
+
+First: app shortcuts, links and Termux commands.
+
 ## Built-in viewers
 
 Open the common kinds inside the launcher, in its look (black, paged, line
