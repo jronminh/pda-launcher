@@ -298,6 +298,40 @@ public final class FilesTab {
         load();
     }
 
+    /** The tab's button tapped again: the first screen, no search, no selection. */
+    public void toStart() {
+        if (header.searching()) header.closeSearch();
+        list.slideNext(-1);
+        goHome();
+    }
+
+    /** Where the tab is, to be kept: "home", "folder:/path" or "media:KIND". */
+    public String placeKey() {
+        Place p = place();
+        if (p.mode == Mode.FOLDER) return "folder:" + p.dir.getPath();
+        if (p.mode == Mode.MEDIA) return "media:" + p.root.kind.name();
+        return "home";
+    }
+
+    /** Back where {@link #placeKey} said (a folder gone, a root unknown: the first screen). */
+    public void restore(String key) {
+        if (key == null) return;
+        if (key.startsWith("folder:")) {
+            File dir = new File(key.substring(7));
+            if (dir.isDirectory()) openFolder(dir);
+        } else if (key.startsWith("media:")) {
+            for (Roots.Root r : Roots.all()) {
+                if (r.kind.name().equals(key.substring(6)) && r.dir == null) {
+                    history.clear();
+                    history.add(new Place(Mode.HOME, null, null));
+                    history.add(new Place(Mode.MEDIA, null, r));
+                    pager.setPage(0);
+                    load();
+                }
+            }
+        }
+    }
+
     /** The answer to the storage permission request. */
     public void onPermissionResult() {
         load();
@@ -877,6 +911,8 @@ public final class FilesTab {
         final File one = sel.size() == 1 ? sel.get(0) : null;
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
+        if (one != null && one.isFile()) m.add(0, 6, -2, "Open with…");
+        if (one != null) m.add(0, 7, -1, "Details");
         if (one != null) m.add(0, 1, 0, "Rename");
         m.add(0, 2, 1, "Select all");
         if (one != null && place().mode != Mode.FOLDER) m.add(0, 4, 3, "Show in folder");
@@ -884,6 +920,8 @@ public final class FilesTab {
         m.add(0, 5, 4, allFav ? "Remove from Briefcase" : "Add to Briefcase");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
+                case 6: FileDetails.openWith(act, one); clearSelection(); break;
+                case 7: FileDetails.show(act, one, root); break;
                 case 1: rename(one); break;
                 case 2: for (Item it : items) if (it.file != null) selected.add(it.file); render(); break;
                 case 4: go(new Place(Mode.FOLDER, one.getParentFile(), null)); break;

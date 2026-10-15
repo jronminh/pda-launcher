@@ -43,11 +43,13 @@ Still for Today: something to write brief.md (Termux, `claude -p` on a schedule)
 
 ## Files: Open with, Details
 
+Done: Open with… and Details (a Card) in Files' selection menu and the
+Briefcase's. Left: "Open as…" (text, image, audio, video, any) for a file whose
+type is wrong or missing; the APK's own icon on its card.
+
 - **Open with…** in a file's menu (and the selection's ⋮ for one file):
   Android's chooser for the file's type (`Intent.createChooser` with the same
   link as a tap), so a file can go to another app than the default once.
-  Also "Open as…" (text, image, audio, video, any) for a file whose type is
-  wrong or missing.
 - **Details** for a file or a folder (one selected, or long-press): name, path
   (copyable), size (a folder's counted in the background, with its number of
   files), modified date, type (MIME), whether it is hidden or a link (and to
@@ -56,6 +58,11 @@ Still for Today: something to write brief.md (Termux, `claude -p` on a schedule)
   Shown in a PopMenu-like card, in the app's look, not a system dialog.
 
 ## Remember where one was
+
+Done: the open tab, Today's part and Files' place come back after the process
+was killed ("Start where I left off", on by default); tapping the open tab's
+button takes it to its start. Left: pages, Files' whole history, Prefs' group,
+words typed and not sent.
 
 The launcher should come back as it was left, also after its process was
 killed (an update, low memory, a reboot), not only while it lives:

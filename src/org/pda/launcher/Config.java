@@ -39,6 +39,7 @@ public final class Config {
         SCHEMA.put("launcher.homeTab", new String[] { "enum", "apps", "apps|favorites|files|today|settings" });
         SCHEMA.put("launcher.animations", new String[] { "bool", "true", "" });
         SCHEMA.put("today.folder", new String[] { "string", "Documents/PDA", "" });
+        SCHEMA.put("launcher.resume", new String[] { "bool", "true", "" });
         SCHEMA.put("launcher.tabs", new String[] { "string", Tabs.DEFAULT, "" });
         SCHEMA.put("launcher.tabStyle", new String[] { "enum", "both", "both|icons|labels" });
         SCHEMA.put("apps.glance", new String[] { "bool", "true", "" });

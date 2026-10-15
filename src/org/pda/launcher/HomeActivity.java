@@ -74,7 +74,9 @@ public class HomeActivity extends Activity {
         tabRow.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < Tabs.count(); i++) {
             final int which = i;
-            buttons[i] = Ui.labeledAction(this, Tabs.ICONS[i], Tabs.NAMES[i], v -> show(which));
+            // A tab's button opens it as it was left; on the tab already open, its start.
+            buttons[i] = Ui.labeledAction(this, Tabs.ICONS[i], Tabs.NAMES[i],
+                    v -> { if (which == tab) toStart(which); else show(which); });
             ((TextView) buttons[i].getChildAt(1)).setEllipsize(android.text.TextUtils.TruncateAt.END);
         }
         bar.addView(tabRow);
@@ -123,7 +125,16 @@ public class HomeActivity extends Activity {
             }
         };
         Config.addListener(onConfig);
-        open(tabOf(getIntent(), homeTab()));
+        // A start (a new process: an update, low memory, a reboot) comes back where
+        // the launcher was left, if so set; an intent naming a tab wins.
+        android.content.SharedPreferences st = getSharedPreferences(STATE, MODE_PRIVATE);
+        boolean resume = Config.getBool("launcher.resume") && st.contains("tab");
+        int start = resume ? st.getInt("tab", homeTab()) : homeTab();
+        if (resume) {
+            today.show(st.getInt("todayPart", TodayTab.TODAY));
+            files.restore(st.getString("filesPlace", null));
+        }
+        open(tabOf(getIntent(), start));
         showPart(getIntent());
     }
 
@@ -177,6 +188,7 @@ public class HomeActivity extends Activity {
     protected void onStop() {
         stopped = true;
         apps.onStop();
+        saveState();
         if (tab == TODAY) today.onHide();   // no folder to follow while off screen
         super.onStop();
     }
@@ -260,6 +272,28 @@ public class HomeActivity extends Activity {
         int t = i.getIntExtra(EXTRA_TAB, fallback);
         i.removeExtra(EXTRA_TAB);
         return t >= 0 && t < Tabs.count() ? t : fallback;
+    }
+
+    private static final String STATE = "state";
+
+    /** Where the launcher is, kept for the next start (launcher.resume). */
+    private void saveState() {
+        getSharedPreferences(STATE, MODE_PRIVATE).edit()
+                .putInt("tab", tab)
+                .putInt("todayPart", today.part())
+                .putString("filesPlace", files.placeKey())
+                .apply();
+    }
+
+    /** The open tab's button tapped again: the tab's start, at once. */
+    private void toStart(int t) {
+        switch (t) {
+            case APPS: apps.reset(); break;
+            case FAVORITES: favorites.toStart(); break;
+            case FILES: files.toStart(); break;
+            case TODAY: today.show(TodayTab.TODAY); break;
+            default: settingsTab.open(SettingsScreen.GENERAL);
+        }
     }
 
     /** Show a tab asked for by name; a tab turned off says so (and the first shown opens). */

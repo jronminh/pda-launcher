@@ -73,6 +73,11 @@ bar). In Files,
 a selection's actions (Copy, Move, Delete, Share, more) are icons over small
 labels, and so is *Paste here*.
 
+Tapping the button of the tab already open takes it to its start (Files to its
+first screen, Today to its Today part...). After the launcher's process was
+killed (an update, low memory, a reboot) it starts where it was left: the tab,
+Today's part, Files' place (Prefs › Launcher › Start where I left off).
+
 Back returns to Applications; Home on the home screen opens the tab chosen in
 Prefs (Applications by default, on its first page), Home from another app comes back to the
 tab that was open. The look is pure black for an OLED screen and flat (inspired

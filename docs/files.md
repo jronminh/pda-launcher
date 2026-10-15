@@ -46,7 +46,9 @@ that contain the text (at most 200).
   served). MediaStore first because Android kills an app that holds a link to a
   provider whose process dies: updating the launcher killed Termux that way.
 - Long-press starts a selection: Copy, Move, Delete (after a question), Share, and
-  ⋮ with Rename, Select all, Show in folder (outside a folder), Add to or
+  ⋮ with Open with… and Details (one item: path, type, size, a folder's count,
+  dates, a link's target, an image's pixels, a song's or a video's length, an
+  APK's package and version), Rename, Select all, Show in folder (outside a folder), Add to or
   Remove from Briefcase (a star marks what is in it). Copied or cut items wait in a bar until *Paste here* in a folder.
 - ⋮ outside a selection: New folder, Show/Hide hidden files,
   Storage (back to the first screen).

@@ -254,6 +254,10 @@ final class TodayTab {
         board.onDestroy();
     }
 
+    int part() {
+        return part;
+    }
+
     /** Back: from a part to Today. */
     boolean onBack() {
         if (part == TODAY) return false;

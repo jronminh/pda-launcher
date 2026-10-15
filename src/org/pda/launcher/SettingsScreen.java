@@ -280,6 +280,7 @@ final class SettingsScreen {
                     fromGeneral = true;
                     fromLauncher = true;
                 }));
+                e.add(toggle("launcher.resume", "Start where I left off"));
                 e.add(toggle("launcher.animations", "Animations"));
                 e.add(choice("launcher.tabStyle", "Tab bar", "both:Icons and labels", "icons:Icons", "labels:Labels"));
                 e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",

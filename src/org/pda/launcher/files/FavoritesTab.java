@@ -118,6 +118,13 @@ public final class FavoritesTab {
         show();
     }
 
+    /** The tab's button tapped again: the first page, no search. */
+    public void toStart() {
+        if (header.searching()) header.closeSearch();
+        pager.setPage(0);
+        show();
+    }
+
     /** Back: close the search, then go to the first page. */
     public boolean onBack() {
         if (header.searching()) { header.closeSearch(); return true; }
@@ -173,13 +180,15 @@ public final class FavoritesTab {
     }
 
     private void itemMenu(View anchor, final File f) {
-        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4;
+        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4, OPEN_WITH = 5, DETAILS = 6;
         final int at = favs.indexOf(f);
         // Moving means something only in the order the items were added.
         boolean movable = Config.get("favorites.sort").equals("added") && header.query().isEmpty();
         boolean desc = Config.getBool("favorites.desc");
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
+        if (f.isFile()) m.add(0, OPEN_WITH, -2, "Open with…");
+        if (f.exists()) m.add(0, DETAILS, -1, "Details");
         if (movable && at > 0) m.add(0, desc ? DOWN : UP, 0, desc ? "Move down" : "Move up");
         if (movable && at < favs.size() - 1) m.add(0, desc ? UP : DOWN, 1, desc ? "Move up" : "Move down");
         if (f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
@@ -189,6 +198,8 @@ public final class FavoritesTab {
                 case UP: move(at, desc ? at + 1 : at - 1); break;
                 case DOWN: move(at, desc ? at - 1 : at + 1); break;
                 case SHOW: host.openFolder(f.getParentFile()); break;
+                case OPEN_WITH: FileDetails.openWith(act, f); break;
+                case DETAILS: FileDetails.show(act, f, root); break;
                 case REMOVE:
                     Favorites.remove(act, Collections.singletonList(f));
                     onShow();
