@@ -1,11 +1,5 @@
-# Gradle
-/.gradle/
-# Android SDK
-/local.properties
-# IntelliJ
-/.idea/
-# Gradle Build
 build/
-# Android Studio Signing APK
-/app/debug/
-/app/release/
+*.apk
+*.idsig
+*.keystore
+/gen/
