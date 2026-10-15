@@ -13,14 +13,19 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.pda.launcher.files.FavoritesTab;
 import org.pda.launcher.files.FilesTab;
+import org.pda.launcher.shell.Config;
 import org.pda.launcher.shell.ShellTab;
 
-/** The home screen: three tabs (Apps, Files, Shell) over a tab bar at the bottom. */
+import java.io.File;
+import java.util.Locale;
+
+/** The home screen: five tabs over a tab bar at the bottom. */
 public class HomeActivity extends Activity {
 
-    public static final int APPS = 0, FILES = 1, SHELL = 2;
-    private static final String[] NAMES = { "Apps", "Files", "Shell" };
+    public static final int APPS = 0, FAVORITES = 1, FILES = 2, SHELL = 3, SETTINGS = 4;
+    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Shell", "Settings" };
 
     /** An intent extra: the tab to show (the shell's notification asks for SHELL). */
     public static final String EXTRA_TAB = "tab";
@@ -28,6 +33,9 @@ public class HomeActivity extends Activity {
     private AppsTab apps;
     private ShellTab shell;
     private FilesTab files;
+    private FavoritesTab favorites;
+    private SettingsTab settings;
+    private Config.Listener onConfig;
     private FrameLayout content;
     private final TextView[] buttons = new TextView[NAMES.length];
     private int tab = -1;
@@ -36,6 +44,8 @@ public class HomeActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // The settings are files in the shell's tree, and every tab reads them.
+        Config.prepare(this);
         if (getActionBar() != null) getActionBar().hide();
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
@@ -59,7 +69,8 @@ public class HomeActivity extends Activity {
             TextView b = new TextView(this);
             b.setText(NAMES[i]);
             b.setGravity(Gravity.CENTER);
-            b.setTextSize(15);
+            b.setTextSize(14);
+            b.setSingleLine(true);
             b.setTextColor(Ui.TEXT);
             b.setPadding(0, dp(this, 14), 0, dp(this, 14));
             b.setOnClickListener(v -> show(which));
@@ -84,23 +95,35 @@ public class HomeActivity extends Activity {
 
         apps = new AppsTab(this);
         shell = new ShellTab(this);
-        files = new FilesTab(this, dir -> {
-            shell.openAt(dir.getPath());
-            show(SHELL);
+        files = new FilesTab(this, this::openShellAt);
+        favorites = new FavoritesTab(this, new FavoritesTab.Host() {
+            @Override public void openFolder(File dir) {
+                files.openFolder(dir);
+                show(FILES);
+            }
+            @Override public void openShellAt(File dir) {
+                HomeActivity.this.openShellAt(dir);
+            }
         });
+        settings = new SettingsTab(this, apps::showHideDialog);
         content.addView(apps.view());
+        content.addView(favorites.view());
         content.addView(files.view());
         content.addView(shell.view());
+        content.addView(settings.view());
+        onConfig = apps::onConfig;
+        Config.addListener(onConfig);
         show(tabOf(getIntent(), APPS));
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        // Home pressed while the launcher is already on screen: back to the apps.
-        // Pressed from another app: come back to the tab that was open.
-        if (!stopped && tab == APPS) apps.reset();
-        show(tabOf(intent, stopped ? tab : APPS));
+        // Home pressed while the launcher is already on screen: the tab of the
+        // launcher.homeTab setting. Pressed from another app: the tab that was open.
+        int home = homeTab();
+        if (!stopped && home == APPS) apps.reset();
+        show(tabOf(intent, stopped ? tab : home));
     }
 
     @Override
@@ -122,6 +145,8 @@ public class HomeActivity extends Activity {
         apps.reload();
         shell.onResume();
         if (tab == FILES) files.onResume();
+        if (tab == FAVORITES) favorites.onShow();
+        if (tab == SETTINGS) settings.onShow();   // Android's state may have changed
     }
 
     @Override
@@ -133,6 +158,8 @@ public class HomeActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        Config.removeListener(onConfig);
+        settings.onHide();
         apps.onDestroy();
         shell.onDestroy();
         super.onDestroy();
@@ -145,6 +172,8 @@ public class HomeActivity extends Activity {
             return;
         }
         if (tab == FILES && files.onBack()) return;
+        if (tab == FAVORITES && favorites.onBack()) return;
+        if (tab == SETTINGS && settings.onBack()) return;
         show(APPS);
     }
 
@@ -164,8 +193,13 @@ public class HomeActivity extends Activity {
         if (which == tab) return;
         tab = which;
         apps.view().setVisibility(which == APPS ? View.VISIBLE : View.GONE);
+        favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
         shell.view().setVisibility(which == SHELL ? View.VISIBLE : View.GONE);
+        settings.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
+        if (which == FAVORITES) favorites.onShow();
+        if (which == SETTINGS) settings.onShow();
+        else settings.onHide();
         if (which == SHELL) shell.onShow();
         else shell.onHide();
         if (which == FILES) files.onShow();
@@ -175,6 +209,20 @@ public class HomeActivity extends Activity {
             buttons[i].setTypeface(null, i == which ? android.graphics.Typeface.BOLD
                 : android.graphics.Typeface.NORMAL);
         }
+    }
+
+    private void openShellAt(File dir) {
+        shell.openAt(dir.getPath());
+        show(SHELL);
+    }
+
+    /** The launcher.homeTab setting, as a tab. */
+    private static int homeTab() {
+        String want = Config.get("launcher.homeTab");
+        for (int i = 0; i < NAMES.length; i++) {
+            if (NAMES[i].toLowerCase(Locale.ROOT).equals(want)) return i;
+        }
+        return APPS;
     }
 
     static String versionName(Context c) {

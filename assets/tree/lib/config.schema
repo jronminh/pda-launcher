@@ -4,6 +4,10 @@
 # type: int bool enum string list path color family.  A setting is the file
 # etc/<key with dots as directories>, one line, taken literally.  Read by the
 # app, the screens and the `config` command alike (docs/shell.md).
+launcher.homeTab	enum	apps	apps|favorites|files|shell|settings	launcher	The tab Home opens when the home screen is already showing
+apps.columns	int	4	3-6	apps	Columns of the app grid
+apps.rows	int	6	4-8	apps	Rows of the app grid (one page)
+files.showHidden	bool	false		files	Show hidden files (names that start with a dot)
 terminal.fontSize	int	14	6-40	terminal	Font size
 terminal.scrollback	int	2000	100-100000	terminal	Scrollback lines (a new session)
 terminal.showIme	bool	false		terminal	Raise the keyboard when the terminal resumes

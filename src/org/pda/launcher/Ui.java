@@ -76,6 +76,76 @@ public final class Ui {
         return t;
     }
 
+    /** The height of a list row; lists turn pages of whole rows. */
+    public static final int ROW_DP = 64;
+
+    /**
+     * A list row: an icon (0 for none), a title, a dim summary (null for none),
+     * and a trailing text such as "✓" or a value (null for none). A highlighted
+     * row has a white outline.
+     */
+    public static LinearLayout row(Context c, int icon, String title, String summary,
+                                   String trailing, boolean highlight) {
+        LinearLayout r = new LinearLayout(c);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(c, 16), 0, dp(c, 16), 0);
+        if (highlight) r.setBackground(outline(c, TEXT));
+
+        if (icon != 0) {
+            ImageView i = new ImageView(c);
+            i.setImageResource(icon);
+            i.setColorFilter(TEXT);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(c, 28), dp(c, 28));
+            lp.rightMargin = dp(c, 16);
+            r.addView(i, lp);
+        }
+
+        LinearLayout texts = new LinearLayout(c);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(c);
+        name.setText(title);
+        name.setTextColor(TEXT);
+        name.setTextSize(16);
+        name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        texts.addView(name);
+        if (summary != null && !summary.isEmpty()) {
+            TextView s = new TextView(c);
+            s.setText(summary);
+            s.setTextColor(DIM);
+            s.setTextSize(12);
+            s.setSingleLine(true);
+            s.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            texts.addView(s);
+        }
+        r.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        if (trailing != null) {
+            TextView t = new TextView(c);
+            t.setText(trailing);
+            t.setTextColor(TEXT);
+            t.setTextSize(15);
+            t.setPadding(dp(c, 12), 0, 0, 0);
+            r.addView(t);
+        }
+        r.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(c, ROW_DP)));
+        return r;
+    }
+
+    /** A section title inside a list; it takes a row's height. */
+    public static TextView section(Context c, String text) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextColor(DIM);
+        t.setTextSize(13);
+        t.setAllCaps(true);
+        t.setGravity(Gravity.BOTTOM);
+        t.setPadding(dp(c, 16), 0, dp(c, 16), dp(c, 10));
+        t.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(c, ROW_DP)));
+        return t;
+    }
+
     /** A one-pixel line. */
     public static View divider(Context c) {
         View v = new View(c);

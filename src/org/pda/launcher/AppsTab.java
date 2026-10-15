@@ -34,6 +34,8 @@ import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
+import org.pda.launcher.shell.Config;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -49,9 +51,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 final class AppsTab {
 
-    static final int COLUMNS = 4;
-    static final int ROWS = 6;
-    static final int PER_PAGE = COLUMNS * ROWS;
+    // The grid's size is a setting (apps.columns, apps.rows), read when it changes.
+    private int columns = 4, rows = 6;
     static final String PREFS = "launcher";
     static final String KEY_HIDDEN = "hidden";
 
@@ -153,7 +154,9 @@ final class AppsTab {
                 return super.dispatchTouchEvent(e);
             }
         };
-        grid.setNumColumns(COLUMNS);
+        columns = Config.getInt("apps.columns");
+        rows = Config.getInt("apps.rows");
+        grid.setNumColumns(columns);
         grid.setVerticalSpacing(0);
         grid.setHorizontalSpacing(0);
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
@@ -166,7 +169,7 @@ final class AppsTab {
         // Six rows fill the grid. The window resizes for the keyboard (the Shell tab
         // needs that): while searching the cells keep their size and the grid scrolls.
         grid.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            int h = grid.getHeight() / ROWS;
+            int h = grid.getHeight() / rows;
             if (h > 0 && h != cellHeight && search.getVisibility() != View.VISIBLE) {
                 cellHeight = h;
                 adapter.notifyDataSetChanged();
@@ -228,8 +231,24 @@ final class AppsTab {
         title.setVisibility(View.VISIBLE);
     }
 
+    private int perPage() {
+        return columns * rows;
+    }
+
+    /** The settings changed: a new grid size takes effect at once. */
+    void onConfig() {
+        int c = Config.getInt("apps.columns"), r = Config.getInt("apps.rows");
+        if (c == columns && r == rows) return;
+        columns = c;
+        rows = r;
+        grid.setNumColumns(columns);
+        cellHeight = 0;   // the layout listener measures again
+        grid.requestLayout();
+        applyFilter();
+    }
+
     private int pages() {
-        return Math.max(1, (shown.size() + PER_PAGE - 1) / PER_PAGE);
+        return Math.max(1, (shown.size() + perPage() - 1) / perPage());
     }
 
     private void showMenu(View anchor) {
@@ -344,7 +363,7 @@ final class AppsTab {
     }
 
     /** Launcher-only filter: checked apps show in the grid, unchecked ones are hidden. */
-    private void showHideDialog() {
+    void showHideDialog() {
         List<App> candidates = new ArrayList<>();
         for (App a : all) {
             if (!a.pkg.equals(act.getPackageName())) candidates.add(a);
@@ -378,15 +397,15 @@ final class AppsTab {
     /** The apps of the current page; one cell is an icon above a single-line label. */
     private final class Adapter extends BaseAdapter {
         @Override public int getCount() {
-            return Math.max(0, Math.min(PER_PAGE, shown.size() - pager.page() * PER_PAGE));
+            return Math.max(0, Math.min(perPage(), shown.size() - pager.page() * perPage()));
         }
-        @Override public Object getItem(int position) { return shown.get(pager.page() * PER_PAGE + position); }
-        @Override public long getItemId(int position) { return shown.get(pager.page() * PER_PAGE + position).pkg.hashCode(); }
+        @Override public Object getItem(int position) { return shown.get(pager.page() * perPage() + position); }
+        @Override public long getItemId(int position) { return shown.get(pager.page() * perPage() + position).pkg.hashCode(); }
 
         // Cells are built fresh: reusing convertView left some labels blank.
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            final App app = shown.get(pager.page() * PER_PAGE + position);
+            final App app = shown.get(pager.page() * perPage() + position);
             LinearLayout cell = new LinearLayout(act);
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER);

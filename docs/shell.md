@@ -41,6 +41,11 @@ writes them atomically; the app seeds the missing ones at start, reads them,
 and watches `etc/`, so a change (font, colours, key bar, screen on) shows at
 once. An invalid file falls back to the default and is logged to `var/log/`.
 
+The launcher keeps its own settings in the same store, so the Settings tab
+and the shell change the same files: `launcher.homeTab`, `apps.columns`,
+`apps.rows`, `files.showHidden`. The Favorites list is `etc/favorites`, one
+absolute path per line (not a schema key).
+
 ## Sessions
 
 A session runs `/system/bin/sh -c "<env>; cd $HOME; . etc/profile; exec <etc/shell/command>"`

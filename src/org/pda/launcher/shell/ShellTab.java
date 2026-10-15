@@ -68,7 +68,7 @@ public final class ShellTab implements ShellService.Ui {
             svc = ((ShellService.LocalBinder) b).service();
             if (svc.error() == null) {
                 Config.init(act);
-                Config.setListener(onConfig);
+                Config.addListener(onConfig);
                 if (pendingDir != null) svc.newTabAt(pendingDir);
                 else if (svc.sessions().isEmpty() && svc.failure() == null) svc.newTab();
                 pendingDir = null;
@@ -183,7 +183,7 @@ public final class ShellTab implements ShellService.Ui {
 
     public void onDestroy() {
         if (ShellService.ui == this) ShellService.ui = null;
-        Config.setListener(null);
+        Config.removeListener(onConfig);
         if (bound) act.unbindService(conn);
         bound = false;
     }

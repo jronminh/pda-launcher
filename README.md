@@ -2,19 +2,29 @@
 
 Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0).
 
-A home screen with three tabs on a bar at the bottom (no swiping):
+A home screen with five tabs on a bar at the bottom (no swiping):
 
 - **Apps**: a 4 x 6 grid of launchable apps, one page at a time (`‹ 1/3 ›` or a
   horizontal swipe), with search and Show/Hide apps in the header. No widgets, no
   wallpaper. Tap to open; long-press for App info, Hide, Uninstall. The grid
   follows installs, removals and suspended apps (`LauncherApps.Callback`).
+- **Favorites**: favourite files and folders, in the order they were added
+  (`etc/favorites` in the app's tree, one path per line). Tap a folder to show
+  it in Files, a file to open it; long-press to reorder, show in folder, open a
+  shell there, or remove. Items are added from Files (select, ⋮ › Add to favorites).
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
 - **Shell**: dn-shell's terminal without prefixes: Android's `sh` and toybox on a
   PTY, with tabs, a key bar, settings as files and an `android` command. See
   [docs/shell.md](docs/shell.md).
+- **Settings**: the app's settings (launcher, Files, Shell) and shortcuts to
+  Android's basic screens (Wi-Fi, Bluetooth, display, sound, battery, storage,
+  apps, date, language, developer options, about), with their state where an
+  app can read it. The app's settings are the files of the shell's tree, so
+  `config set apps.columns 5` in the Shell tab does the same as the screen.
 
-Back returns to Apps; Home on the home screen returns to Apps (first page),
+Back returns to Apps; Home on the home screen opens the tab chosen in Settings
+(Apps by default, on its first page),
 Home from another app comes back to the tab that was open. The look is pure
 black for an OLED screen, flat, with no animation (inspired by the Onyx Boox
 launcher); the tab bar steps aside while the keyboard is up.

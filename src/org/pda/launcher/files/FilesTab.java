@@ -38,6 +38,7 @@ import android.widget.Toast;
 import org.pda.launcher.Pager;
 import org.pda.launcher.R;
 import org.pda.launcher.Ui;
+import org.pda.launcher.shell.Config;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -102,7 +103,6 @@ public final class FilesTab {
     private static final String PREFS = "files";
     private static final int SORT_NAME = 0, SORT_DATE = 1, SORT_SIZE = 2, SORT_TYPE = 3;
     private static final String[] SORTS = { "Name", "Date modified", "Size", "Type" };
-    private static final int ROW_DP = 64;
 
     // What was copied or cut: kept across screens until it is pasted or dropped.
     private static List<File> clip;
@@ -128,6 +128,7 @@ public final class FilesTab {
     private final List<Place> history = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
     private final Set<File> selected = new LinkedHashSet<>();
+    private Set<File> favs = new java.util.HashSet<>();
     private List<File> listing = new ArrayList<>();   // the folder as read, before the search filter
     private String query = "";
     private int rowsPerPage = 8;
@@ -210,7 +211,7 @@ public final class FilesTab {
         };
         list.setOrientation(LinearLayout.VERTICAL);
         list.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int rows = Math.max(1, (b - t) / Ui.dp(act, ROW_DP));
+            int rows = Math.max(1, (b - t) / Ui.dp(act, Ui.ROW_DP));
             if (b - t > 0 && rows != rowsPerPage) {
                 rowsPerPage = rows;
                 main.post(this::render);
@@ -290,6 +291,17 @@ public final class FilesTab {
         return false;
     }
 
+    /** Show a folder, from another tab (Favorites): the first screen, then the folder. */
+    public void openFolder(File dir) {
+        history.clear();
+        history.add(new Place(Mode.HOME, null, null));
+        history.add(new Place(Mode.FOLDER, dir, null));
+        selected.clear();
+        if (search.getVisibility() == View.VISIBLE) closeSearch();
+        pager.setPage(0);
+        load();
+    }
+
     /** The answer to the storage permission request. */
     public void onPermissionResult() {
         load();
@@ -332,7 +344,8 @@ public final class FilesTab {
         final String q = query;
         final int sort = prefs.getInt("sort", SORT_NAME);
         final boolean desc = prefs.getBoolean("desc", false);
-        final boolean hidden = prefs.getBoolean("hidden", false);
+        final boolean hidden = Config.getBool("files.showHidden");
+        favs = new java.util.HashSet<>(Favorites.load(act));
         final int gen = ++generation;
         new Thread(() -> {
             List<File> files = new ArrayList<>();
@@ -516,55 +529,21 @@ public final class FilesTab {
     }
 
     private View row(final Item it) {
-        LinearLayout r = new LinearLayout(act);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(Ui.dp(act, 16), 0, Ui.dp(act, 16), 0);
-        boolean on = it.file != null && selected.contains(it.file);
-        if (on) r.setBackground(Ui.outline(act, Ui.TEXT));
-
-        ImageView icon = new ImageView(act);
-        icon.setImageResource(it.root != null ? it.root.icon : iconOf(it.file));
-        icon.setColorFilter(Ui.TEXT);
-        r.addView(icon, new LinearLayout.LayoutParams(Ui.dp(act, 28), Ui.dp(act, 28)));
-
-        LinearLayout texts = new LinearLayout(act);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        texts.setPadding(Ui.dp(act, 16), 0, 0, 0);
-        TextView name = new TextView(act);
-        name.setText(it.root != null ? it.root.title : it.file.getName());
-        name.setTextColor(Ui.TEXT);
-        name.setTextSize(16);
-        name.setSingleLine(true);
-        name.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        texts.addView(name);
-        String sum = summary(it);
-        if (!sum.isEmpty()) {
-            TextView s = new TextView(act);
-            s.setText(sum);
-            s.setTextColor(Ui.DIM);
-            s.setTextSize(12);
-            s.setSingleLine(true);
-            s.setEllipsize(TextUtils.TruncateAt.END);
-            texts.addView(s);
+        View r;
+        if (it.root != null) {
+            r = Ui.row(act, it.root.icon, it.root.title, summary(it), null, false);
+        } else {
+            boolean on = selected.contains(it.file);
+            r = Ui.row(act, iconOf(it.file), it.file.getName(), summary(it),
+                    on ? "✓" : favs.contains(it.file) ? "★" : null, on);
+            r.setOnLongClickListener(v -> { toggle(it.file); return true; });
         }
-        r.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (on) {
-            TextView tick = new TextView(act);
-            tick.setText("✓");
-            tick.setTextColor(Ui.TEXT);
-            tick.setTextSize(18);
-            r.addView(tick);
-        }
-
         r.setOnClickListener(v -> tap(it));
-        if (it.file != null) r.setOnLongClickListener(v -> { toggle(it.file); return true; });
-        r.setLayoutParams(rowParams());
         return r;
     }
 
     private LinearLayout.LayoutParams rowParams() {
-        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, ROW_DP));
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, Ui.ROW_DP));
     }
 
     private String summary(Item it) {
@@ -572,17 +551,22 @@ public final class FilesTab {
             if (it.root.dir != null) return it.root.dir.getPath();
             return it.root.kind == Roots.Kind.RECENT ? "Changed in the last " + Roots.RECENT_DAYS + " days" : "";
         }
-        File f = it.file;
+        // Outside a folder (media, search) the folder a file is in says where it is.
+        return describe(act, it.file, place().mode != Mode.FOLDER);
+    }
+
+    /** "date · size · folder" for a file, the date for a folder. */
+    static String describe(Context c, File f, boolean withFolder) {
+        if (!f.exists()) return "Not found";
         String when = DateUtils.formatSameDayTime(f.lastModified(), System.currentTimeMillis(),
                 DateFormat.MEDIUM, DateFormat.SHORT).toString();
-        if (f.isDirectory()) return when;
-        String s = when + " · " + Formatter.formatShortFileSize(act, f.length());
-        // Outside a folder (media, search) the folder a file is in says where it is.
-        if (place().mode != Mode.FOLDER && f.getParentFile() != null) s += " · " + f.getParentFile().getName();
+        if (f.isDirectory()) return withFolder ? when + " · " + f.getParent() : when;
+        String s = when + " · " + Formatter.formatShortFileSize(c, f.length());
+        if (withFolder && f.getParentFile() != null) s += " · " + f.getParentFile().getName();
         return s;
     }
 
-    private static int iconOf(File f) {
+    static int iconOf(File f) {
         if (f.isDirectory()) return R.drawable.ic_folder;
         String m = FileShare.mimeOf(f);
         if (m.startsWith("image/")) return R.drawable.ic_image;
@@ -671,13 +655,18 @@ public final class FilesTab {
     }
 
     private void open(File f) {
+        open(act, f);
+    }
+
+    /** Open a file in the app that handles its type. */
+    static void open(Context c, File f) {
         Intent i = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(FileShare.uriFor(f), FileShare.mimeOf(f))
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            act.startActivity(i);
+            c.startActivity(i);
         } catch (ActivityNotFoundException e) {
-            toast("No app can open " + f.getName());
+            Toast.makeText(c, "No app can open " + f.getName(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -832,12 +821,18 @@ public final class FilesTab {
             m.add(0, NEW_FOLDER, 0, "New folder");
             m.add(0, SHELL, 1, "Open shell here");
         }
-        m.add(0, HIDDEN, 2, prefs.getBoolean("hidden", false) ? "Hide hidden files" : "Show hidden files");
+        m.add(0, HIDDEN, 2, Config.getBool("files.showHidden") ? "Hide hidden files" : "Show hidden files");
         if (p.mode != Mode.HOME) m.add(0, HOME, 3, "Storage");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case NEW_FOLDER: newFolder(); break;
-                case HIDDEN: prefs.edit().putBoolean("hidden", !prefs.getBoolean("hidden", false)).apply(); load(); break;
+                case HIDDEN: {
+                    String err = Config.set(act, "files.showHidden",
+                            Config.getBool("files.showHidden") ? "false" : "true");
+                    if (err != null) toast(err);
+                    load();
+                    break;
+                }
                 case SHELL: host.openShellAt(p.dir); break;
                 case HOME: goHome(); break;
             }
@@ -855,12 +850,21 @@ public final class FilesTab {
         m.add(0, 2, 1, "Select all");
         if (one != null && one.isDirectory()) m.add(0, 3, 2, "Open shell here");
         if (one != null && place().mode != Mode.FOLDER) m.add(0, 4, 3, "Show in folder");
+        final boolean allFav = favs.containsAll(sel);
+        m.add(0, 5, 4, allFav ? "Remove from favorites" : "Add to favorites");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: rename(one); break;
                 case 2: for (Item it : items) if (it.file != null) selected.add(it.file); render(); break;
                 case 3: host.openShellAt(one); clearSelection(); break;
                 case 4: go(new Place(Mode.FOLDER, one.getParentFile(), null)); break;
+                case 5:
+                    if (allFav) Favorites.remove(act, sel);
+                    else Favorites.add(act, sel);
+                    toast(allFav ? "Removed from favorites" : "Added to favorites");
+                    selected.clear();
+                    load();
+                    break;
             }
             return true;
         });

@@ -28,10 +28,10 @@ import java.util.Map;
  * the {@link Listener} at once. An invalid file falls back to the default and is
  * logged to {@code var/log/dn.log}; it never stops the app.
  */
-final class Config {
+public final class Config {
 
     /** Called on the main thread after the settings were read again. */
-    interface Listener {
+    public interface Listener {
         void onChange();
     }
 
@@ -45,13 +45,13 @@ final class Config {
     private static volatile Map<String, String> values = new LinkedHashMap<>();
     private static final List<FileObserver> observers = new ArrayList<>();
     private static final Map<String, String> logged = new LinkedHashMap<>();   // key -> last message
-    private static Listener listener;
+    private static final List<Listener> listeners = new ArrayList<>();
 
     private static final Runnable RELOAD = new Runnable() {
         @Override public void run() {
             read();
             watch();
-            if (listener != null) listener.onChange();
+            for (Listener l : new ArrayList<>(listeners)) l.onChange();
         }
     };
 
@@ -78,28 +78,76 @@ final class Config {
         if (rc != 0) throw new IOException("config seed failed (" + rc + "): " + out);
     }
 
+    /** Make the tree, seed the settings and read them: what every tab needs before
+     *  it reads a setting. A failure is logged; the defaults from the schema stay. */
+    public static void prepare(Context c) {
+        try {
+            Tree.prepare(c);
+            seed(c);
+        } catch (Throwable t) {
+            android.util.Log.e("pdash", "could not prepare the tree", t);
+        }
+        init(c);
+    }
+
+    /** Write a setting through the one validating writer, {@code bin/config set}.
+     *  @return null, or why it was refused. */
+    public static String set(Context c, String key, String value) {
+        File r = Tree.root(c);
+        try {
+            ProcessBuilder pb = new ProcessBuilder("/system/bin/sh",
+                    new File(r, "bin/config").getPath(), "set", key, value);
+            pb.environment().put("DN_INSTDIR", r.getPath());
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            StringBuilder out = new StringBuilder();
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = in.readLine()) != null) out.append(line).append('\n');
+            }
+            if (p.waitFor() == 0) {
+                // The watcher follows too, a moment later; read now so the caller sees it.
+                read();
+                return null;
+            }
+            String msg = out.toString().trim();
+            return msg.startsWith("config: ") ? msg.substring(8) : msg;
+        } catch (IOException | InterruptedException e) {
+            return e.toString();
+        }
+    }
+
     /** Read the schema and every setting, and start watching. Safe to call again. */
-    static synchronized void init(Context c) {
+    public static synchronized void init(Context c) {
         if (root != null) return;
         root = Tree.root(c);
         read();
         watch();
     }
 
-    static void setListener(Listener l) {
-        listener = l;
+    public static void addListener(Listener l) {
+        if (!listeners.contains(l)) listeners.add(l);
+    }
+
+    public static void removeListener(Listener l) {
+        listeners.remove(l);
+    }
+
+    /** The schema's row for a key: type, default, constraint; null if unknown. */
+    public static String[] schema(String key) {
+        return schema.get(key);
     }
 
     // --- values -----------------------------------------------------------------
 
-    static String get(String key) {
+    public static String get(String key) {
         String v = values.get(key);
         if (v != null) return v;
         String[] s = schema.get(key);
         return s == null ? "" : s[1];
     }
 
-    static int getInt(String key) {
+    public static int getInt(String key) {
         try {
             return Integer.parseInt(get(key));
         } catch (NumberFormatException e) {
@@ -107,11 +155,11 @@ final class Config {
         }
     }
 
-    static boolean getBool(String key) {
+    public static boolean getBool(String key) {
         return "true".equals(get(key));
     }
 
-    static int getColor(String key) {
+    public static int getColor(String key) {
         return (int) (0xFF000000L | Long.parseLong(get(key).substring(1), 16));
     }
 
