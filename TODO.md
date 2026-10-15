@@ -21,6 +21,27 @@ and to leave Android's compatibility modes. Not a one-line change:
 - Play also wants an App Bundle (AAB): `aapt2 link --proto-format` and
   bundletool, still without Gradle.
 
+## Next features (most useful for the effort first)
+
+1. **App shortcuts on long-press.** As the default home, the launcher may read
+   them (`LauncherApps.getShortcuts`: static, dynamic, pinned); put them at the
+   top of the app's PopMenu with their icons, and start them with
+   `LauncherApps.startShortcut`.
+2. **A trash for Files.** Delete moves to a hidden folder on the same volume
+   (a rename, so instant), with where it came from; a Trash root to restore or
+   empty; items older than 30 days go for good. A setting for direct delete.
+3. **Tablets and landscape.** Columns follow the width (the Apps grid's
+   columns setting becomes a minimum, or "auto"); lists may go two columns;
+   Files may show the folder list beside the content on a wide screen.
+4. **One search for everything:** apps, files (MediaStore), favourites and the
+   Settings tiles in one box, from the Apps tab or a swipe down.
+5. **A glance line over the Apps tab:** time, date, the next alarm, battery.
+   Small, for OLED, in place of widgets.
+6. **Notification dots** on app icons (NotificationListenerService, a
+   permission the user turns on), off by default.
+7. **Share to Note:** an ACTION_SEND text target that puts the text on the board.
+8. **Backup and restore** of the settings, favourites and hidden apps to a file.
+
 ## Built-in viewers
 
 Open the common kinds inside the launcher, in its look (black, paged, line
