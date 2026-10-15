@@ -1,15 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.pda.launcher"
-    android:versionCode="1"
-    android:versionName="1.0">
+    android:versionCode="2"
+    android:versionName="2.0">
 
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
+    <!-- targetSdk 28 is the platform contract of the Shell tab: an app that targets
+         29+ may not exec files from its own data directory (docs/shell.md). -->
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="28" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- The Files tab: the whole of shared storage through java.io.File (legacy
+         storage, kept while the app targets 28/29), and opening an .apk. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:requestLegacyExternalStorage="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@drawable/ic_launcher"
@@ -19,11 +29,11 @@
         <activity
             android:name=".HomeActivity"
             android:clearTaskOnLaunch="true"
-            android:configChanges="uiMode"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden|keyboard"
             android:exported="true"
             android:launchMode="singleTask"
             android:stateNotNeeded="true"
-            android:windowSoftInputMode="stateUnspecified|adjustPan">
+            android:windowSoftInputMode="stateUnspecified|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -31,16 +41,16 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".AppReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_ADDED" />
-                <action android:name="android.intent.action.PACKAGE_REMOVED" />
-                <data android:scheme="package" />
-            </intent-filter>
-        </receiver>
+        <service
+            android:name=".shell.ShellService"
+            android:exported="false"
+            android:stopWithTask="false" />
+
+        <provider
+            android:name=".files.FileShare"
+            android:authorities="org.pda.launcher.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
     </application>
 </manifest>

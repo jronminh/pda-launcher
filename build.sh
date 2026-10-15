@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Builds pda-launcher.apk: javac -> d8 -> aapt2 -> zipalign -> apksigner
-# Same toolchain as pda-panel; no Gradle, no Kotlin.
+# Same toolchain as pda-panel; no Gradle, no Kotlin. The shell's tree is assets/tree.
 set -e
 cd "$(dirname "$0")"
 BT=${BT:-$ANDROID_HOME/build-tools/37.0.0}
@@ -11,12 +11,14 @@ rm -rf $OUT && mkdir -p $OUT/classes $OUT/dex $OUT/gen
 
 "$BT/aapt2" compile --dir res -o $OUT/res.zip
 "$BT/aapt2" link -I "$AJ" --manifest AndroidManifest.xml --java $OUT/gen \
-  -o $OUT/unsigned.apk $OUT/res.zip
+  -A assets -o $OUT/unsigned.apk $OUT/res.zip
 
 javac --release 11 -nowarn -cp "$AJ" -d $OUT/classes \
   $(command find src $OUT/gen -name '*.java')
 "$BT/d8" --min-api 26 --lib "$AJ" --output $OUT/dex $(command find $OUT/classes -name '*.class')
 (cd $OUT/dex && zip -q ../unsigned.apk classes.dex)
+# The PTY (ConnectBot's libcom_google_ase_Exec.so), prebuilt, arm64 only.
+zip -q -r $OUT/unsigned.apk lib
 "$BT/zipalign" -f -p 4 $OUT/unsigned.apk $OUT/aligned.apk
 
 if [ ! -f "$KS" ]; then

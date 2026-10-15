@@ -3,7 +3,13 @@
     android:height="192dp"
     android:viewportWidth="192"
     android:viewportHeight="192">
+    <!-- A black disc with a white ring and a 2 x 2 grid: visible on pure black. -->
     <path
         android:fillColor="#000000"
-        android:pathData="M96,0A96,96 0 1,0 96,192A96,96 0 1,0 96,0Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:pathData="M96,4A92,92 0 1,0 96,188A92,92 0 1,0 96,4Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,58h32v32h-32z M102,58h32v32h-32z M58,102h32v32h-32z M102,102h32v32h-32z" />
 </vector>

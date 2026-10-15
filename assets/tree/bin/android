@@ -1,0 +1,95 @@
+#!/system/bin/sh
+#
+# android -- ask the app for what only Android can do (docs/shell.md).
+#
+# One JSON request over the app's socket, var/host.sock, with toybox's nc -U;
+# the app answers with one reply. By default the reply is for a shell: key=value
+# lines on stdout (an array repeats its key), an error on stderr. --json prints
+# the reply as JSON, as the app sent it. The exit code is the reply's code:
+# 0 ok, 1 failure, 2 the app is not reachable, 3 denied, 4 timeout,
+# 5 unsupported, 64 usage.
+#
+#   android [--json] status | describe | battery | net.dns | clipboard.get
+#   android [--json] toast TEXT | notify TITLE [BODY] | open URL
+#   android [--json] clipboard.set [TEXT] | share [TEXT]      (no TEXT: stdin)
+#   android [--json] raw METHOD [ARGS-JSON]
+set -u
+I="${DN_INSTDIR:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+SOCK="${DN_HOST_SOCK:-$I/var/host.sock}"
+TOKEN="${DN_HOST_TOKEN:-$(cat "$I/var/host.token" 2>/dev/null)}"
+TAB=$(printf '\t')
+NL='
+'
+
+usage() { sed -n '12,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 64; }
+
+FMT=kv
+if [ "${1:-}" = --json ]; then FMT=json; shift; fi
+
+# esc TEXT: TEXT as the inside of a JSON string.
+esc() {
+  s=$1
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//"$TAB"/\\t}
+  s=${s//"$NL"/\\n}
+  printf '%s' "$s"
+}
+
+# call METHOD [ARGS-JSON]: ask, print, and exit with the reply's code.
+call() {
+  [ -S "$SOCK" ] || { echo "android: the app is not running (no $SOCK)" >&2; exit 2; }
+  more=''
+  [ "$FMT" = kv ] && more=',"fmt":"kv"'
+  reply=$(printf '{"v":1,"id":"1","token":"%s","method":"%s","args":%s%s}\n' \
+    "$TOKEN" "$1" "${2:-{\}}" "$more" | nc -U "$SOCK") \
+    || { echo "android: the app did not answer" >&2; exit 2; }
+  [ -n "$reply" ] || { echo "android: the app did not answer" >&2; exit 2; }
+  if [ "$FMT" = kv ]; then
+    first=${reply%%"$NL"*}
+    code=${first#code=}
+    rest=${reply#"$first"}
+    rest=${rest#"$NL"}
+    if [ "$code" = 0 ]; then
+      [ -z "$rest" ] || printf '%s\n' "$rest"
+    else
+      printf 'android: %s\n' "${rest#error=}" >&2
+    fi
+  else
+    printf '%s\n' "$reply"
+    code=${reply#*\"code\":}
+    code=${code%%[!0-9]*}
+  fi
+  case $code in ''|*[!0-9]*) code=1 ;; esac
+  exit "$code"
+}
+
+# text ARGS...: the arguments joined, or stdin when there are none.
+text() {
+  if [ $# -gt 0 ]; then printf '%s' "$*"; else cat; fi
+}
+
+verb=${1:-}
+[ -n "$verb" ] || usage
+shift
+case $verb in
+  status|describe|battery|net.dns|clipboard.get)
+    call "$verb" ;;
+  toast)
+    [ $# -ge 1 ] || usage
+    call toast "{\"text\":\"$(esc "$*")\"}" ;;
+  notify)
+    [ $# -ge 1 ] || usage
+    call notify "{\"title\":\"$(esc "$1")\",\"body\":\"$(esc "${2:-}")\"}" ;;
+  open)
+    [ $# -ge 1 ] || usage
+    call open "{\"url\":\"$(esc "$1")\"}" ;;
+  clipboard.set|share)
+    t=$(text "$@")
+    key=text
+    call "$verb" "{\"$key\":\"$(esc "$t")\"}" ;;
+  raw)
+    [ $# -ge 1 ] || usage
+    call "$1" "${2:-{\}}" ;;
+  *) echo "android: unknown verb: $verb" >&2; usage ;;
+esac

@@ -1,0 +1,13 @@
+# pda-launcher interactive-shell rc (mksh) -- shipped, replaced when the app is
+# updated; do not edit. Android's mksh sources /system/etc/mkshrc by default
+# and overrides PS1, so the launcher points ENV here instead.
+#
+# The prompt shows ~ for the home directory and the real path elsewhere. It also
+# sets the window title (OSC 0), which is the name of the tab.
+PS1='$(p=${PWD#$HOME}; [ "$p" = "$PWD" ] || p="~$p"; printf "\033]0;%s\007%s" "$p" "$p") \$ '
+
+alias ll='ls -al'
+alias la='ls -a'
+alias ..='cd ..'
+
+printf 'pda-launcher shell\n'
