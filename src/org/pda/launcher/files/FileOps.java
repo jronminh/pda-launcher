@@ -65,6 +65,47 @@ final class FileOps {
         });
     }
 
+    /** Moves one thing, as a rename on the same volume, else a copy and a delete. */
+    interface Mover {
+        void move(File from, File to) throws IOException;
+    }
+
+    private static Mover mover(List<File> changed) {
+        return (from, to) -> {
+            if (from.renameTo(to)) {
+                changed.add(from);
+                changed.add(to);
+            } else {
+                copyTree(from, to, changed);
+                deleteTree(from, changed);
+            }
+        };
+    }
+
+    /** Delete as the user means it: into the trash ({@link Trash}), back with Restore. */
+    static void trash(Context c, List<File> items, Progress p) {
+        final Context app = c.getApplicationContext();
+        run(c, p, items.size(), (changed, step) -> {
+            Mover m = mover(changed);
+            for (File f : items) {
+                Trash.put(f, m);
+                Favorites.deleted(app, f);
+                step.run();
+            }
+        });
+    }
+
+    /** Things in the trash back where they came from. */
+    static void restore(Context c, List<Trash.Entry> entries, Progress p) {
+        run(c, p, entries.size(), (changed, step) -> {
+            Mover m = mover(changed);
+            for (Trash.Entry e : entries) {
+                Trash.restore(e, m);
+                step.run();
+            }
+        });
+    }
+
     static void delete(Context c, List<File> items, Progress p) {
         final Context app = c.getApplicationContext();
         run(c, p, items.size(), (changed, step) -> {
@@ -159,7 +200,7 @@ final class FileOps {
     }
 
     /** {@code name} in {@code dir}, or "name (1).ext", "name (2).ext"... if taken. */
-    private static File unique(File dir, String name) {
+    static File unique(File dir, String name) {
         File f = new File(dir, name);
         if (!f.exists() && !isLink(f)) return f;
         int dot = name.lastIndexOf('.');

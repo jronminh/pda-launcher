@@ -36,8 +36,12 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   (⋮ › Add to Briefcase), Applications (More, long-press › Add to Briefcase)
   or another app's Share › Add to Briefcase. Files follow Files' moves,
   renames and deletes; shortcuts are pinned so their app keeps them.
-- **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
-  See [docs/files.md](docs/files.md).
+- **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen,
+  with a **Trash** (Delete moves there at once; Restore puts it back; kept 7 to
+  365 days) and **locations**: folders other apps offer to Android (an SMB
+  share through an SMB provider app, Nextcloud, Termux's home, a USB drive, a
+  cloud drive), added with "Add a location" and browsed in the same look. See
+  [docs/files.md](docs/files.md).
 - **Today**: the PDA's information centre, in the look of the other tabs: a
   banner (the date, the next alarm, today's events; tap for the agenda) over
   tiles, each a part with its state (Agenda's next event, the open and due

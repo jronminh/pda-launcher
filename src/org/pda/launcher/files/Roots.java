@@ -21,19 +21,25 @@ import java.util.List;
  */
 final class Roots {
 
-    enum Kind { FOLDER, RECENT, IMAGES, VIDEOS, AUDIO, DOCUMENTS }
+    enum Kind { FOLDER, RECENT, IMAGES, VIDEOS, AUDIO, DOCUMENTS, TRASH, LOCATION, ADD }
 
     static final class Root {
         final Kind kind;
         final String title;
         final int icon;
         final File dir;   // for FOLDER
+        final android.net.Uri tree;   // for LOCATION
 
         Root(Kind kind, String title, int icon, File dir) {
+            this(kind, title, icon, dir, null);
+        }
+
+        Root(Kind kind, String title, int icon, File dir, android.net.Uri tree) {
             this.kind = kind;
             this.title = title;
             this.icon = icon;
             this.dir = dir;
+            this.tree = tree;
         }
     }
 
@@ -58,6 +64,17 @@ final class Roots {
         r.add(new Root(Kind.VIDEOS, "Videos", R.drawable.ic_video, null));
         r.add(new Root(Kind.AUDIO, "Audio", R.drawable.ic_audio, null));
         r.add(new Root(Kind.DOCUMENTS, "Documents", R.drawable.ic_doc, null));
+        r.add(new Root(Kind.TRASH, "Trash", R.drawable.ic_delete, null));
+        return r;
+    }
+
+    /** The first screen: the roots, the locations added from other apps, and a way to add one. */
+    static List<Root> all(Context c) {
+        List<Root> r = all();
+        for (Locations.Location l : Locations.all(c)) {
+            r.add(new Root(Kind.LOCATION, l.name, R.drawable.ic_globe, null, l.tree));
+        }
+        r.add(new Root(Kind.ADD, "Add a location", R.drawable.ic_add, null));
         return r;
     }
 

@@ -65,6 +65,7 @@ public final class Config {
         SCHEMA.put("favorites.desc", new String[] { "bool", "false", "" });
         SCHEMA.put("files.sort", new String[] { "enum", "name", "name|date|size|type" });
         SCHEMA.put("files.desc", new String[] { "bool", "false", "" });
+        SCHEMA.put("files.trashDays", new String[] { "enum", "30", "7|30|90|365" });
         SCHEMA.put("settings.sort", new String[] { "enum", "default", "default|name" });
         SCHEMA.put("settings.desc", new String[] { "bool", "false", "" });
         SCHEMA.put("note.textSize", new String[] { "enum", "medium", "small|medium|large" });

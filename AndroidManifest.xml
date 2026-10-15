@@ -96,6 +96,12 @@
             </intent-filter>
         </activity>
 
+        <!-- A location of Files: another app's folder through the Storage Access Framework. -->
+        <activity
+            android:name=".files.LocationActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- The built-in viewers (Prefs › Viewers): each in its own task, as an app,
              so Home leaves it in Recents and the launcher as it was. -->
         <activity

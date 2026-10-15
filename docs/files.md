@@ -45,7 +45,22 @@ that contain the text (at most 200).
   in place of androidx's FileProvider; only files under shared storage are
   served). MediaStore first because Android kills an app that holds a link to a
   provider whose process dies: updating the launcher killed Termux that way.
-- Long-press starts a selection: Copy, Move, Delete (after a question), Share, and
+- **Trash**: Delete moves the selection to `.Trash` at the top of shared storage
+  at once (a rename on the same volume; a `.nomedia` keeps it out of the media
+  lists), each thing with where it came from. The Trash root lists them, last
+  deleted first, with where from; a selection there has Restore (back to its
+  folder, renamed "name (1)" if taken) and Delete (for good, after a
+  question); ⋮ has Empty trash and Keep for 7, 30, 90 or 365 days. Older things
+  go when the first screen next shows.
+- **Locations**: "Add a location" opens Android's folder picker
+  (ACTION_OPEN_DOCUMENT_TREE); any app that offers folders to the system can
+  answer (an SMB provider for a NAS, Nextcloud, Termux, a USB drive, Drive).
+  The grant is kept; the folder becomes a root (long-press: Rename, Remove).
+  It opens in its own screen in the Files look: folders in, files opened by
+  the system's apps (Open with too), Download to the device, Rename, Delete
+  (the provider's, no trash), Details, + for a new folder or to upload files.
+  The launcher speaks no network protocol: the providing app does.
+- Long-press starts a selection: Copy, Move, Delete (to the Trash), Share, and
   ⋮ with Open with… and Details (one item: path, type, size, a folder's count,
   dates, a link's target, an image's pixels, a song's or a video's length, an
   APK's package and version), Rename, Select all, Show in folder (outside a folder), Add to or

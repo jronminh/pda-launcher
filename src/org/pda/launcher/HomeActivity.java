@@ -248,6 +248,12 @@ public class HomeActivity extends Activity {
     }
 
     @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == org.pda.launcher.files.FilesTab.REQUEST_TREE && result == RESULT_OK) files.onTreePicked(data);
+    }
+
+    @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         if (code == FilesTab.REQUEST_STORAGE) {
             files.onPermissionResult();

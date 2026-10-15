@@ -196,6 +196,8 @@ public final class FilesTab {
             }
             @Override public void click(int i, View v) { tap(items.get(i)); }
             @Override public boolean longClick(int i, View v) {
+                Roots.Root r = items.get(i).root;
+                if (r != null && r.kind == Roots.Kind.LOCATION) { locationMenu(v, r); return true; }
                 File f = items.get(i).file;
                 if (f == null) return false;
                 toggle(f);
@@ -387,9 +389,18 @@ public final class FilesTab {
             } else if (!q.isEmpty()) {
                 files = Roots.search(act, q);
                 sort(files, sort, desc);
+            } else if (p.mode == Mode.MEDIA && p.root.kind == Roots.Kind.TRASH) {
+                java.util.Map<File, Trash.Entry> t = new java.util.HashMap<>();
+                for (Trash.Entry e : Trash.entries()) {
+                    t.put(e.file, e);
+                    files.add(e.file);   // the last deleted first
+                }
+                trashed = t;
             } else if (p.mode == Mode.MEDIA) {
                 files = Roots.query(act, p.root.kind);
                 if (p.root.kind != Roots.Kind.RECENT) sort(files, sort, desc);
+            } else if (p.mode == Mode.HOME) {
+                purgeTrash();
             }
             final List<File> result = files;
             act.runOnUiThread(() -> {
@@ -398,6 +409,75 @@ public final class FilesTab {
                 showItems(p.mode == Mode.FOLDER ? filter(result) : result);
             });
         }).start();
+    }
+
+    // --- locations (other apps' folders, through the Storage Access Framework) ----------
+
+    public static final int REQUEST_TREE = 44;
+
+    private void addLocation() {
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            act.startActivityForResult(pick, REQUEST_TREE);
+        } catch (ActivityNotFoundException e) {
+            toast("No folder picker on this device");
+        }
+    }
+
+    /** The answer of the folder picker (HomeActivity passes it on). */
+    public void onTreePicked(Intent data) {
+        String name = Locations.add(act, data);
+        if (name != null) toast("Added: " + name);
+        load();
+    }
+
+    private void locationMenu(View anchor, Roots.Root r) {
+        PopMenu m = new PopMenu(act, anchor);
+        m.add(0, 1, 0, "Rename");
+        m.add(0, 2, 1, "Remove");
+        m.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) {
+                new org.pda.launcher.Prompt(act, "Rename").field("Name", r.title).ok("Rename", v -> {
+                    if (!v[0].isEmpty()) Locations.rename(act, r.tree, v[0]);
+                    load();
+                }).show(root);
+            } else {
+                Locations.remove(act, r.tree);
+                toast("Removed " + r.title + " (nothing in it was touched)");
+                load();
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    /** The app that provides a location, by its documents provider's authority. */
+    private String providerName(android.net.Uri tree) {
+        try {
+            android.content.pm.ProviderInfo pi = act.getPackageManager().resolveContentProvider(tree.getAuthority(), 0);
+            if (pi != null) return String.valueOf(pi.applicationInfo.loadLabel(act.getPackageManager()));
+        } catch (RuntimeException ignore) {}
+        return tree.getAuthority();
+    }
+
+    /** What the trash holds, by the thing's place in it: where it came from, when. */
+    private volatile java.util.Map<File, Trash.Entry> trashed = new java.util.HashMap<>();
+
+    private boolean inTrash() {
+        Place p = place();
+        return p.mode == Mode.MEDIA && p.root.kind == Roots.Kind.TRASH && header.query().isEmpty();
+    }
+
+    /** On the files' thread: what was deleted longer ago than files.trashDays goes for good. */
+    private void purgeTrash() {
+        List<File> old = Trash.expired(Integer.parseInt(Config.get("files.trashDays")));
+        if (old.isEmpty()) return;
+        FileOps.delete(act, old, new FileOps.Progress() {
+            @Override public void onProgress(int done, int total) { }
+            @Override public void onDone(String error) { }
+        });
     }
 
     private List<File> filter(List<File> files) {
@@ -411,7 +491,7 @@ public final class FilesTab {
     private void showItems(List<File> files) {
         items.clear();
         if (place().mode == Mode.HOME && header.query().isEmpty()) {
-            for (Roots.Root r : Roots.all()) items.add(new Item(null, r));
+            for (Roots.Root r : Roots.all(act)) items.add(new Item(null, r));
         } else {
             for (File f : files) items.add(new Item(f, null));
         }
@@ -615,7 +695,19 @@ public final class FilesTab {
     private String summary(Item it) {
         if (it.root != null) {
             if (it.root.dir != null) return it.root.dir.getPath();
+            if (it.root.kind == Roots.Kind.LOCATION) {
+                return Locations.reachable(act, it.root.tree) ? "From " + providerName(it.root.tree)
+                        : "Not reachable: add it again";
+            }
+            if (it.root.kind == Roots.Kind.ADD) return "A NAS, a cloud, Termux… through an app that offers it";
+            if (it.root.kind == Roots.Kind.TRASH) return "Deleted things, kept " + Config.get("files.trashDays") + " days";
             return it.root.kind == Roots.Kind.RECENT ? "Changed in the last " + Roots.RECENT_DAYS + " days" : "";
+        }
+        Trash.Entry e = inTrash() ? trashed.get(it.file) : null;
+        if (e != null) {
+            File from = new File(e.origin).getParentFile();
+            return "Deleted " + DateUtils.formatSameDayTime(e.deleted, System.currentTimeMillis(),
+                    DateFormat.MEDIUM, DateFormat.SHORT) + " · from " + (from == null ? "/" : from.getName());
         }
         // Outside a folder (media, search) the folder a file is in says where it is.
         return describe(act, it.file, place().mode != Mode.FOLDER);
@@ -707,6 +799,16 @@ public final class FilesTab {
     // --- acting --------------------------------------------------------------------------
 
     private void tap(Item it) {
+        if (it.root != null && it.root.kind == Roots.Kind.LOCATION) {
+            start(new Intent(act, LocationActivity.class)
+                    .putExtra(LocationActivity.EXTRA_TREE, it.root.tree.toString())
+                    .putExtra(LocationActivity.EXTRA_NAME, it.root.title));
+            return;
+        }
+        if (it.root != null && it.root.kind == Roots.Kind.ADD) {
+            addLocation();
+            return;
+        }
         if (it.root != null) {
             go(it.root.dir != null ? new Place(Mode.FOLDER, it.root.dir, null) : new Place(Mode.MEDIA, null, it.root));
             return;
@@ -800,18 +902,28 @@ public final class FilesTab {
         });
     }
 
+    /** Delete: into the trash at once (Restore brings it back); in the trash, for good, after a question. */
     private void confirmDelete() {
         final List<File> what = new ArrayList<>(selected);
         String name = what.size() == 1 ? "\"" + what.get(0).getName() + "\"" : what.size() + " items";
+        if (!inTrash() && !Trash.contains(place().dir == null ? new File("/") : place().dir)) {
+            work("Moving to Trash", what, (list, p) -> FileOps.trash(act, list, p),
+                    () -> toast(what.size() == 1 ? "Moved to Trash" : what.size() + " items moved to Trash"));
+            return;
+        }
+        // In the trash: the slots go, the thing and where it came from.
+        final List<File> slots = new ArrayList<>();
+        for (File f : what) slots.add(inTrash() ? f.getParentFile() : f);
         new AlertDialog.Builder(act)
-                .setMessage("Delete " + name + "? This cannot be undone.")
+                .setMessage("Delete " + name + " for good? This cannot be undone.")
                 .setPositiveButton("Delete", (d, w) -> {
+                    final List<File> what2 = slots;
                     busy = true;
                     selected.clear();
                     status.setVisibility(View.VISIBLE);
-                    status.setText("Deleting 0 / " + what.size());
+                    status.setText("Deleting 0 / " + what2.size());
                     render();
-                    FileOps.delete(act, what, new FileOps.Progress() {
+                    FileOps.delete(act, what2, new FileOps.Progress() {
                         @Override public void onProgress(int done, int total) {
                             status.setText("Deleting " + done + " / " + total);
                         }
@@ -827,6 +939,44 @@ public final class FilesTab {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private interface Op {
+        void start(List<File> items, FileOps.Progress p);
+    }
+
+    /** A file operation with its progress in the status line, then the place read again. */
+    private void work(String doing, List<File> what, Op op, Runnable after) {
+        busy = true;
+        selected.clear();
+        status.setVisibility(View.VISIBLE);
+        status.setText(doing + " 0 / " + what.size());
+        render();
+        op.start(what, new FileOps.Progress() {
+            @Override public void onProgress(int done, int total) {
+                status.setText(doing + " " + done + " / " + total);
+            }
+            @Override public void onDone(String error) {
+                busy = false;
+                status.setVisibility(View.GONE);
+                if (error != null) toast(error);
+                else if (after != null) after.run();
+                if (clip != null) clip.removeAll(what);
+                if (clip != null && clip.isEmpty()) clip = null;
+                load();
+            }
+        });
+    }
+
+    private void restore(List<File> what) {
+        final List<Trash.Entry> entries = new ArrayList<>();
+        for (File f : what) {
+            Trash.Entry e = trashed.get(f);
+            if (e != null) entries.add(e);
+        }
+        work("Restoring", what, (list, p) -> FileOps.restore(act, entries, p),
+                () -> toast(entries.size() == 1 ? "Restored to " + new File(entries.get(0).origin).getParent()
+                        : entries.size() + " items restored"));
     }
 
     private void rename(final File f) {
@@ -882,8 +1032,15 @@ public final class FilesTab {
         }
         m.add(0, HIDDEN, 2, Config.getBool("files.showHidden") ? "Hide hidden files" : "Show hidden files");
         if (p.mode != Mode.HOME) m.add(0, HOME, 3, "Storage");
+        final int EMPTY = 5, KEEP = 6;
+        if (inTrash()) {
+            m.add(0, EMPTY, -2, "Empty trash").setEnabled(!items.isEmpty());
+            m.add(0, KEEP, -1, "Keep for: " + Config.get("files.trashDays") + " days  ›");
+        }
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
+                case EMPTY: emptyTrash(); break;
+                case KEEP: PopMenu.choose(act, anchor, "files.trashDays", "7 days", "30 days", "90 days", "365 days"); break;
                 case NEW_FOLDER: newFolder(); break;
                 case HIDDEN: {
                     String err = Config.set(act, "files.showHidden",
@@ -899,9 +1056,38 @@ public final class FilesTab {
         pm.show();
     }
 
+    private void emptyTrash() {
+        final List<File> slots = new ArrayList<>();
+        for (Item it : items) if (it.file != null) slots.add(it.file.getParentFile());
+        new AlertDialog.Builder(act)
+                .setMessage("Delete the " + slots.size() + (slots.size() == 1 ? " thing" : " things")
+                        + " in the trash for good? This cannot be undone.")
+                .setPositiveButton("Empty", (d, w) -> work("Deleting", slots,
+                        (list, p) -> FileOps.delete(act, list, p), () -> toast("The trash is empty")))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void showSelectionMenu(View anchor) {
         final List<File> sel = new ArrayList<>(selected);
         final File one = sel.size() == 1 ? sel.get(0) : null;
+        if (inTrash()) {
+            // In the trash: put back, or look; nothing that would change it in place.
+            PopMenu pm = new PopMenu(act, anchor);
+            pm.getMenu().add(0, 1, 0, "Restore");
+            if (one != null) pm.getMenu().add(0, 2, 1, "Details");
+            pm.getMenu().add(0, 3, 2, "Select all");
+            pm.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case 1: restore(sel); break;
+                    case 2: FileDetails.show(act, one, root); break;
+                    default: for (Item it : items) if (it.file != null) selected.add(it.file); render();
+                }
+                return true;
+            });
+            pm.show();
+            return;
+        }
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
         if (one != null && one.isFile()) m.add(0, 6, -2, "Open with…");

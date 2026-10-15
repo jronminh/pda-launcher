@@ -60,9 +60,8 @@ Capture, Share › Add to Inbox, the tabs' order and which show.
 
 Still for Today: something to write brief.md (Termux, `claude -p` on a schedule).
 
-1. **A trash for Files.** Delete moves to a hidden folder on the same volume
-   (a rename, so instant), with where it came from; a Trash root to restore or
-   empty; items older than 30 days go for good. A setting for direct delete.
+1. ~~A trash for Files~~ done (docs/files.md). Left: a trash per volume (an SD
+   card's own, so its deletes are renames too); MediaStore's trash on API 30+.
 2. **Tablets and landscape.** Columns follow the width (the Apps grid's
    columns setting becomes a minimum, or "auto"); lists may go two columns;
    Files may show the folder list beside the content on a wide screen.
@@ -166,6 +165,13 @@ media session and sleep timer for audio; video and archives.
   look well), and archives (zip with java.util.zip: list, extract).
 
 ## Network storage
+
+Done, the first step: locations through the Storage Access Framework (any
+app's documents provider: SMB providers, Nextcloud, Termux...), see
+docs/files.md. Left: copy and move between Files and a location with the
+clip (today: Download to the device, Upload here); the built-in viewers for a
+location's files (a copy in the cache); and, only if providers fall short, a
+protocol in the app as below.
 
 New roots in Files, under the local ones, each a place you add once (address,
 user, password; the password in the app's private storage, never in a log).
