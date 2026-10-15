@@ -42,6 +42,7 @@ public final class Config {
         SCHEMA.put("open.text", new String[] { "enum", "builtin", "builtin|system" });
         SCHEMA.put("open.image", new String[] { "enum", "builtin", "builtin|system" });
         SCHEMA.put("open.audio", new String[] { "enum", "builtin", "builtin|system" });
+        SCHEMA.put("open.video", new String[] { "enum", "builtin", "builtin|system" });
         SCHEMA.put("open.pdf", new String[] { "enum", "builtin", "builtin|system" });
         SCHEMA.put("editor.wrap", new String[] { "bool", "true", "" });
         SCHEMA.put("editor.mono", new String[] { "bool", "false", "" });

@@ -13,18 +13,20 @@ import android.view.View;
 import android.widget.Toast;
 
 import org.pda.launcher.Card;
+import org.pda.launcher.PopMenu;
+import org.pda.launcher.viewers.Viewers;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
 /**
- * Details of a file or a folder, and "Open with…": what the Files tab and the
- * Briefcase offer for one item. The details are a {@link Card}: name, path,
- * type, size, modified, hidden, a link's target; for an image its size in
- * pixels, for audio and video their length (and title, artist), for an APK its
- * package and version and whether it is installed. A folder's size and what
- * needs a file read come in the background.
+ * Details of a file or a folder, "Open with…" and "Open as…": what the Files
+ * tab and the Briefcase offer for one item. The details are a {@link Card}:
+ * name, path, type, size, modified, hidden, a link's target; for an image its
+ * size in pixels, for audio and video their length (and title, artist), for an
+ * APK its icon, package and version and whether it is installed. A folder's
+ * size and what needs a file read come in the background.
  */
 public final class FileDetails {
 
@@ -40,6 +42,35 @@ public final class FileDetails {
         } catch (ActivityNotFoundException e) {
             Toast.makeText(c, "No app can open " + f.getName(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * "Open as…": a file whose name says the wrong kind, or none, taken as text,
+     * an image, audio, video or anything: in the built-in viewer when that kind
+     * is set to built-in, else Android's chooser for the kind (as DocumentsUI's
+     * type is the file's, the chooser's here is the one picked).
+     */
+    public static void openAs(Context c, View anchor, File f) {
+        final String[] kinds = { "text", "image", "audio", "video", null };
+        final String[] names = { "Text", "Image", "Audio", "Video", "Any app" };
+        final String[] mimes = { "text/plain", "image/*", "audio/*", "video/*", "*/*" };
+        PopMenu m = new PopMenu(c, anchor);
+        for (int i = 0; i < names.length; i++) m.add(0, i, i, names[i]);
+        m.setOnMenuItemClickListener(item -> {
+            int i = item.getItemId();
+            if (kinds[i] != null && Viewers.open(c, f, kinds[i])) return true;
+            Intent view = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(FileShare.linkFor(c, f), mimes[i])
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                c.startActivity(Intent.createChooser(view, "Open as " + names[i].toLowerCase(java.util.Locale.ROOT))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(c, "No app opens " + names[i].toLowerCase(java.util.Locale.ROOT), Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        });
+        m.show();
     }
 
     public static void show(Context c, File f, View over) {
@@ -76,6 +107,11 @@ public final class FileDetails {
                         + (t[2] > 0 ? ", " + t[2] + (t[2] == 1 ? " folder" : " folders") : ""));
             }
             if (extra >= 0) card.set(extra, kindDetails(app, f, mime));
+            if ("application/vnd.android.package-archive".equals(mime)) {
+                try {
+                    card.icon(Thumbs.apkIcon(app, f));
+                } catch (RuntimeException | OutOfMemoryError ignore) {}
+            }
         }, "files-details").start();
     }
 

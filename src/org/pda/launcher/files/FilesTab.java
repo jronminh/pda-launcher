@@ -1243,7 +1243,8 @@ public final class FilesTab {
         }
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
-        if (one != null && one.isFile()) m.add(0, 6, -2, "Open with…");
+        if (one != null && one.isFile()) m.add(0, 6, -3, "Open with…");
+        if (one != null && one.isFile()) m.add(0, 8, -2, "Open as…");
         if (one != null) m.add(0, 7, -1, "Details");
         if (one != null) m.add(0, 1, 0, "Rename");
         m.add(0, 2, 1, "Select all");
@@ -1253,6 +1254,7 @@ public final class FilesTab {
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 6: FileDetails.openWith(act, one); clearSelection(); break;
+                case 8: FileDetails.openAs(act, anchor, one); clearSelection(); break;
                 case 7: FileDetails.show(act, one, root); break;
                 case 1: rename(one); break;
                 case 2: for (Item it : items) if (it.file != null) selected.add(it.file); render(); break;

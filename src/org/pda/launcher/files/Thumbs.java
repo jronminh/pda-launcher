@@ -150,7 +150,7 @@ final class Thumbs {
         }
     }
 
-    private static Drawable apkIcon(Context c, File f) {
+    static Drawable apkIcon(Context c, File f) {
         PackageManager pm = c.getPackageManager();
         PackageInfo pi = pm.getPackageArchiveInfo(f.getPath(), 0);
         if (pi == null || pi.applicationInfo == null) return null;

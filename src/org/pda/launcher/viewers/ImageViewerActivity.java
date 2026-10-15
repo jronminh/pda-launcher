@@ -21,8 +21,10 @@ import java.util.List;
  * The built-in image viewer: one image fitted to the screen, black around it;
  * pinch or double-tap to zoom, a horizontal swipe for the next or the previous
  * image of the folder (by name). A tap shows or hides the bar (name, n/count,
- * ⋮ with Open with… and Details). Decoded in the background at most about the
- * screen's size, with the photo's own rotation (EXIF) applied.
+ * ⋮ with Rotate, Share, Delete, Open with…, Open as… and Details). Decoded in
+ * the background at most about the screen's size, with the photo's own
+ * rotation (EXIF) applied. Rotate turns the view only, never the file; Delete
+ * puts the file in Files' trash.
  */
 public class ImageViewerActivity extends Activity {
 
@@ -33,6 +35,8 @@ public class ImageViewerActivity extends Activity {
     private Header header;
     private LinearLayout bar;
     private int loading;   // which load is current, so a slow decode never shows late
+    private Bitmap shown;  // the image as decoded, before Rotate
+    private int turned;    // Rotate's quarter turns, clockwise, for the image on screen
 
     @Override
     protected void onCreate(Bundle b) {
@@ -42,7 +46,7 @@ public class ImageViewerActivity extends Activity {
         src = Viewers.sourceOf(this);
         if (src == null) return;
         File f = src.file != null ? src.file : new File(src.name);
-        files = src.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
+        files = Viewers.siblings(src);
         at = files.indexOf(f);
 
         FrameLayout root = new FrameLayout(this);
@@ -56,7 +60,7 @@ public class ImageViewerActivity extends Activity {
 
         header = new Header(this, "")
                 .back(this::finish)
-                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.menu(this, v, src, files.get(at))));
+                .action(Ui.action(this, R.drawable.ic_more, "More", this::menu));
         header.showBack(true);
         bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
@@ -67,9 +71,54 @@ public class ImageViewerActivity extends Activity {
         go(at);
     }
 
+    private void menu(View anchor) {
+        String[] own = src.file != null ? new String[] { "Rotate", "Share", "Delete" } : new String[] { "Rotate", "Share" };
+        Viewers.menu(this, anchor, src, files.get(at), own, i -> {
+            if (i == 0) rotate();
+            else if (i == 1) Viewers.share(this, src, files.get(at));
+            else delete();
+        });
+    }
+
+    /** A quarter turn clockwise, of the view only. */
+    private void rotate() {
+        if (shown == null) return;
+        turned = (turned + 1) % 4;
+        if (turned == 0) {
+            image.show(shown);
+            return;
+        }
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        m.postRotate(90 * turned);
+        try {
+            image.show(Bitmap.createBitmap(shown, 0, 0, shown.getWidth(), shown.getHeight(), m, true));
+        } catch (OutOfMemoryError e) {
+            turned = 0;
+            image.show(shown);
+        }
+    }
+
+    /** Into Files' trash (Restore brings it back), then the next image, or out if none is left. */
+    private void delete() {
+        final File f = files.get(at);
+        org.pda.launcher.files.FileOps.trash(this, f, error -> {
+            if (error != null) {
+                android.widget.Toast.makeText(this, "Cannot delete: " + error, android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            android.widget.Toast.makeText(this, "Moved to Trash", android.widget.Toast.LENGTH_SHORT).show();
+            if (isDestroyed()) return;
+            files.remove(f);
+            if (files.isEmpty()) finish();
+            else go(Math.min(at, files.size() - 1));
+        });
+    }
+
     private void go(int i) {
         if (i < 0 || i >= files.size()) return;
         at = i;
+        shown = null;
+        turned = 0;
         final File f = files.get(i);
         header.setTitle(f.getName() + (files.size() > 1 ? "  " + (i + 1) + "/" + files.size() : ""));
         final int ticket = ++loading;
@@ -79,6 +128,7 @@ public class ImageViewerActivity extends Activity {
             Bitmap bmp = src.file != null ? decode(f, max) : decodeLink(max);
             runOnUiThread(() -> {
                 if (ticket != loading || isDestroyed()) return;
+                shown = bmp;
                 if (bmp == null) {
                     image.show(null);
                     header.setTitle(f.getName() + " — cannot be shown");

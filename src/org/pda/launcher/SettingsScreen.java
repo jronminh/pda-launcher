@@ -288,6 +288,7 @@ final class SettingsScreen {
                 e.add(choice("open.text", "Text files", "builtin:Built-in editor", "system:System app"));
                 e.add(choice("open.image", "Images", "builtin:Built-in viewer", "system:System app"));
                 e.add(choice("open.audio", "Audio", "builtin:Built-in player", "system:System app"));
+                e.add(choice("open.video", "Video", "builtin:Built-in player", "system:System app"));
                 e.add(choice("open.pdf", "PDF", "builtin:Built-in reader", "system:System app"));
                 break;
             case TABS:
@@ -342,7 +343,7 @@ final class SettingsScreen {
     /** "Built-in: Text, Images" or "All system apps". */
     private String viewersSummary() {
         StringBuilder sb = new StringBuilder();
-        String[] keys = { "text", "image", "audio", "pdf" }, names = { "Text", "Images", "Audio", "PDF" };
+        String[] keys = { "text", "image", "audio", "video", "pdf" }, names = { "Text", "Images", "Audio", "Video", "PDF" };
         for (int i = 0; i < keys.length; i++) {
             if (!Config.get("open." + keys[i]).equals("builtin")) continue;
             sb.append(sb.length() == 0 ? "Built-in: " : ", ").append(names[i]);

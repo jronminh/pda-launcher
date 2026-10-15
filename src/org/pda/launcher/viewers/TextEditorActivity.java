@@ -36,11 +36,13 @@ import java.nio.charset.StandardCharsets;
  * place (a temporary file, then a rename, so a crash never leaves half a file).
  * Too large (over 2 MB) or binary (a NUL in its first 8 KB), the file goes to
  * the system's app instead. Lines wrap or not, in a proportional or monospace
- * font (⋮). Leaving with changes not saved asks first.
+ * font (⋮). Find (⋮) marks every match and walks them with ‹ ›. Leaving with
+ * changes not saved asks first.
  */
 public class TextEditorActivity extends Activity {
 
     private static final long MAX = 2L * 1024 * 1024;
+    private static final int MARKED = 2000;   // matches underlined at most; all are counted
 
     private File file;
     private Viewers.Source src;   // a link alone when src.file is null: read and saved through it
@@ -48,6 +50,11 @@ public class TextEditorActivity extends Activity {
     private Header header;
     private String saved = "";
     private boolean dirty;
+    private LinearLayout findBar;
+    private EditText query;
+    private android.widget.TextView found;
+    private final java.util.List<int[]> matches = new java.util.ArrayList<>();
+    private int match = -1;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -73,6 +80,7 @@ public class TextEditorActivity extends Activity {
         header.showBack(true);
         root.addView(header.view());
         root.addView(Ui.divider(this));
+        root.addView(findBar());
 
         text = new EditText(this);
         text.setBackground(null);
@@ -86,11 +94,135 @@ public class TextEditorActivity extends Activity {
         text.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int c, int d) { }
             @Override public void onTextChanged(CharSequence s, int a, int c, int d) { }
-            @Override public void afterTextChanged(Editable s) { setDirty(!s.toString().equals(saved)); }
+            @Override public void afterTextChanged(Editable s) {
+                setDirty(!s.toString().equals(saved));
+                if (findBar != null && findBar.getVisibility() == View.VISIBLE) find(false);
+            }
         });
         root.addView(text, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         applyLook();
         setContentView(root);
+    }
+
+    /** Find's bar under the header: the words, n/count, ‹ ›, close. Hidden until ⋮ › Find. */
+    private View findBar() {
+        findBar = new LinearLayout(this);
+        findBar.setOrientation(LinearLayout.VERTICAL);
+        findBar.setVisibility(View.GONE);
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        query = new EditText(this);
+        query.setBackground(null);
+        query.setTextColor(Ui.TEXT);
+        query.setHintTextColor(Ui.DIM);
+        query.setHint("Find");
+        query.setTextSize(16);
+        query.setSingleLine(true);
+        query.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        query.setOnEditorActionListener((v, action, ev) -> { step(1); return true; });
+        query.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int c, int d) { }
+            @Override public void onTextChanged(CharSequence s, int a, int c, int d) { }
+            @Override public void afterTextChanged(Editable s) { find(true); }
+        });
+        row.addView(query, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        found = new android.widget.TextView(this);
+        found.setTextColor(Ui.DIM);
+        found.setTextSize(13);
+        found.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 4), 0);
+        row.addView(found);
+        row.addView(Ui.action(this, R.drawable.ic_back, "Previous match", v -> step(-1)));
+        row.addView(Ui.action(this, R.drawable.ic_forward, "Next match", v -> step(1)));
+        row.addView(Ui.action(this, R.drawable.ic_close, "Close find", v -> closeFind()));
+        findBar.addView(row);
+        findBar.addView(Ui.divider(this));
+        return findBar;
+    }
+
+    private void openFind() {
+        findBar.setVisibility(View.VISIBLE);
+        query.requestFocus();
+        query.selectAll();
+        android.view.inputmethod.InputMethodManager imm = getSystemService(android.view.inputmethod.InputMethodManager.class);
+        if (imm != null) imm.showSoftInput(query, 0);
+        find(true);
+    }
+
+    private void closeFind() {
+        findBar.setVisibility(View.GONE);
+        matches.clear();
+        match = -1;
+        unmark();
+        text.requestFocus();
+    }
+
+    /**
+     * Every match of the words, case aside, underlined; the current one shown
+     * inverted. {@code fromCursor}: the current is the first at or after the
+     * cursor (a new search); else the one nearest the old current (the text changed).
+     */
+    private void find(boolean fromCursor) {
+        int near = match >= 0 && match < matches.size() ? matches.get(match)[0] : text.getSelectionStart();
+        matches.clear();
+        match = -1;
+        unmark();
+        String q = query.getText().toString();
+        if (q.isEmpty()) {
+            found.setText("");
+            return;
+        }
+        Editable e = text.getText();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(q),
+                java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE).matcher(e);
+        int from = fromCursor ? Math.max(0, text.getSelectionStart()) : Math.max(0, near);
+        while (m.find()) {
+            if (match < 0 && m.start() >= from) match = matches.size();
+            matches.add(new int[] { m.start(), m.end() });
+            if (matches.size() <= MARKED) {
+                e.setSpan(new Mark(), m.start(), m.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        if (matches.isEmpty()) {
+            found.setText("None");
+            return;
+        }
+        if (match < 0) match = 0;   // none after the cursor: from the top again
+        show();
+    }
+
+    /** The next ({@code dir} 1) or previous (-1) match, round the end. */
+    private void step(int dir) {
+        if (matches.isEmpty()) return;
+        match = (match + dir + matches.size()) % matches.size();
+        show();
+    }
+
+    private void show() {
+        Editable e = text.getText();
+        for (Current c : e.getSpans(0, e.length(), Current.class)) e.removeSpan(c);
+        int[] at = matches.get(match);
+        e.setSpan(new Current(), at[0], at[1], android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        found.setText((match + 1) + "/" + matches.size());
+        text.setSelection(at[0]);
+        text.post(() -> text.bringPointIntoView(at[0]));
+    }
+
+    private void unmark() {
+        Editable e = text.getText();
+        for (Mark m : e.getSpans(0, e.length(), Mark.class)) e.removeSpan(m);
+        for (Current c : e.getSpans(0, e.length(), Current.class)) e.removeSpan(c);
+    }
+
+    /** A match: underlined, so it shows in every theme (E-ink has no grey). */
+    private static final class Mark extends android.text.style.UnderlineSpan { }
+
+    /** The current match: the theme's colours swapped. */
+    private static final class Current extends android.text.style.CharacterStyle {
+        @Override public void updateDrawState(android.text.TextPaint p) {
+            p.bgColor = Ui.TEXT;
+            p.setColor(Ui.BG);
+        }
     }
 
     /** The file as text, or null (said) if the editor should not take it. */
@@ -194,6 +326,7 @@ public class TextEditorActivity extends Activity {
 
     private void menu(View anchor) {
         PopMenu m = new PopMenu(this, anchor);
+        m.add(0, 4, -1, "Find");
         m.add(0, 1, 0, "Wrap lines").setChecked(Config.getBool("editor.wrap"));
         m.add(0, 2, 1, "Monospace").setChecked(Config.getBool("editor.mono"));
         m.add(0, 3, 2, "Revert to saved").setEnabled(dirty);
@@ -201,6 +334,7 @@ public class TextEditorActivity extends Activity {
             switch (item.getItemId()) {
                 case 1: Config.set(this, "editor.wrap", String.valueOf(!Config.getBool("editor.wrap"))); break;
                 case 2: Config.set(this, "editor.mono", String.valueOf(!Config.getBool("editor.mono"))); break;
+                case 4: openFind(); return true;
                 default: text.setText(saved);
             }
             applyLook();
@@ -216,6 +350,10 @@ public class TextEditorActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (findBar != null && findBar.getVisibility() == View.VISIBLE) {
+            closeFind();
+            return;
+        }
         if (!dirty) {
             finish();
             return;

@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
  * touched. Every path that changed is handed to the media scanner, so the
  * media roots follow, and {@link Favorites} follow a move, a rename or a delete.
  */
-final class FileOps {
+public final class FileOps {
 
     interface Progress {
         /** On the main thread: {@code done} of {@code total} top-level items. */
@@ -92,6 +92,14 @@ final class FileOps {
                 Favorites.deleted(app, f);
                 step.run();
             }
+        });
+    }
+
+    /** One file into the trash from outside Files (a viewer's Delete); {@code done} gets the error, or null. */
+    public static void trash(Context c, File f, java.util.function.Consumer<String> done) {
+        trash(c, java.util.Collections.singletonList(f), new Progress() {
+            @Override public void onProgress(int d, int total) { }
+            @Override public void onDone(String error) { done.accept(error); }
         });
     }
 

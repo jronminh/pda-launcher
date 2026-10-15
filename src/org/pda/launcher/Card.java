@@ -16,7 +16,8 @@ import java.util.List;
 /**
  * A card over the screen, in the app's look (black, a thin outline, no shadow):
  * a title and rows of a dim label over a white value, which can be selected and
- * copied. A row's value may come later ({@link #set}), as a folder's size does.
+ * copied. A row's value may come later ({@link #set}), as a folder's size does,
+ * and so may an icon before the title ({@link #icon}).
  * A tap outside or Back closes it.
  */
 public final class Card {
@@ -24,6 +25,7 @@ public final class Card {
     private final Context c;
     private final LinearLayout box;
     private final List<TextView> values = new ArrayList<>();
+    private final TextView title;
     private PopupWindow window;
 
     public Card(Context c, String title) {
@@ -34,6 +36,7 @@ public final class Card {
         int p = Ui.dp(c, 20);
         box.setPadding(p, p, p, Ui.dp(c, 12));
         TextView t = new TextView(c);
+        this.title = t;
         t.setText(title);
         t.setTextColor(Ui.TEXT);
         t.setTextSize(18);
@@ -65,6 +68,18 @@ public final class Card {
     public void set(int row, String value) {
         TextView v = values.get(row);
         v.post(() -> v.setText(value));
+    }
+
+    /** An icon before the title (an APK's), now known (from any thread); null: none. */
+    public void icon(android.graphics.drawable.Drawable d) {
+        if (d == null) return;
+        int s = Ui.dp(c, 32);
+        d.setBounds(0, 0, s, s);
+        title.post(() -> {
+            title.setCompoundDrawablesRelative(d, null, null, null);
+            title.setCompoundDrawablePadding(Ui.dp(c, 12));
+            title.setGravity(Gravity.CENTER_VERTICAL);
+        });
     }
 
     public void show(View over) {

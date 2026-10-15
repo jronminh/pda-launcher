@@ -41,9 +41,10 @@ import java.util.Locale;
  * shortcut) drawn with the launcher's line icon, in the user's order; when
  * they are more than a page, the last tile, More, lists them all (paged,
  * sorted). Tap to open (a file in its viewer, a folder in Files); long-press to
- * rename, move, remove, and a file's Open with, Details, Show in folder. Added
- * with + (a link, an app or its shortcut), from Files (⋮ › Add to Briefcase),
- * from Applications (long-press › Add to Briefcase) and Share › Add to Briefcase.
+ * rename, move, remove, and a file's Open with, Open as, Details, Show in
+ * folder. Added with + (a link, an app or its shortcut), from Files (⋮ › Add
+ * to Briefcase), from Applications (long-press › Add to Briefcase) and Share ›
+ * Add to Briefcase.
  */
 public final class FavoritesTab {
 
@@ -360,7 +361,7 @@ public final class FavoritesTab {
     }
 
     private void itemMenu(View anchor, final Item it) {
-        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4, OPEN_WITH = 5, DETAILS = 6, RENAME = 7;
+        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4, OPEN_WITH = 5, DETAILS = 6, RENAME = 7, OPEN_AS = 8;
         final File f = it.file();
         // Moving is in the user's order: on the tiles, or in More sorted as added.
         boolean movable = header.query().isEmpty()
@@ -368,7 +369,8 @@ public final class FavoritesTab {
         final int pos = shown.indexOf(it);
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
-        if (f != null && f.isFile()) m.add(0, OPEN_WITH, -2, "Open with…");
+        if (f != null && f.isFile()) m.add(0, OPEN_WITH, -3, "Open with…");
+        if (f != null && f.isFile()) m.add(0, OPEN_AS, -2, "Open as…");
         if (f != null && f.exists()) m.add(0, DETAILS, -1, "Details");
         if (f == null) m.add(0, RENAME, -1, "Rename");
         if (movable && pos > 0) m.add(0, UP, 0, "Move up");
@@ -381,6 +383,7 @@ public final class FavoritesTab {
                 case DOWN: swap(it, shown.get(pos + 1)); break;
                 case SHOW: host.openFolder(f.getParentFile()); break;
                 case OPEN_WITH: FileDetails.openWith(act, f); break;
+                case OPEN_AS: FileDetails.openAs(act, anchor, f); break;
                 case DETAILS: FileDetails.show(act, f, root); break;
                 case RENAME: rename(it); break;
                 case REMOVE:

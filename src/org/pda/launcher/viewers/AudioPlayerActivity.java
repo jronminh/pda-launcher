@@ -1,52 +1,47 @@
 package org.pda.launcher.viewers;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.res.ColorStateList;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.media.AudioAttributes;
-import android.media.AudioFocusRequest;
-import android.media.AudioManager;
-import android.media.MediaMetadataRetriever;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
-import android.os.PowerManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-import org.pda.launcher.Config;
 import org.pda.launcher.Header;
+import org.pda.launcher.PopMenu;
 import org.pda.launcher.R;
 import org.pda.launcher.Ui;
 
 import java.io.File;
-import java.util.List;
 
 /**
- * The built-in audio player: the folder's audio files by name, from the one
- * tapped, one after another. Cover (embedded, else a plain note), title and
- * artist (the tags, else the file name), a bar to seek, previous, play/pause,
- * next. It plays on while another app is on screen and stops when it is closed
- * (Back); another app taking the sound pauses it. No notification: a player of
- * one sitting, not a music app.
+ * The built-in audio player's screen: the folder's audio files by name, from
+ * the one tapped, one after another, played by {@link PlaybackService} so the
+ * sound goes on when this screen is closed (Back) or another app is on top;
+ * the notification brings it back, and its ✕ (or ⋮ › Stop) ends it. Cover
+ * (embedded, else a plain note), title and artist (the tags, else the file
+ * name), a bar to seek, previous, play/pause, next; ⋮ also has the sleep timer.
  */
-public class AudioPlayerActivity extends Activity {
+public class AudioPlayerActivity extends Activity implements PlaybackService.Listener {
+
+    /** From the notification or the session: show what plays, open nothing new. */
+    static final String EXTRA_SHOW = "show";
 
     private final Handler main = new Handler(Looper.getMainLooper());
-    private List<File> files;
-    private Viewers.Source src;   // a link alone when src.file is null: one track, played through it
-    private int at;
-    private MediaPlayer player;
-    private AudioManager audio;
-    private AudioFocusRequest focus;
+    private PlaybackService svc;
+    private Viewers.Source pending;   // what was opened, handed to the service once bound
     private Header header;
     private ImageView cover;
     private TextView title, artist, pos, len, count;
@@ -54,13 +49,23 @@ public class AudioPlayerActivity extends Activity {
     private ImageView play;
     private boolean seeking;
 
+    private final ServiceConnection conn = new ServiceConnection() {
+        @Override public void onServiceConnected(ComponentName n, IBinder b) {
+            svc = ((PlaybackService.Local) b).service();
+            svc.listen(AudioPlayerActivity.this);
+            take();
+        }
+        @Override public void onServiceDisconnected(ComponentName n) {
+            svc = null;
+        }
+    };
+
     private final Runnable tick = new Runnable() {
         @Override public void run() {
-            if (player != null && !seeking) {
-                try {
-                    seek.setProgress(player.getCurrentPosition());
-                    pos.setText(time(player.getCurrentPosition()));
-                } catch (IllegalStateException ignore) {}
+            if (svc != null && !seeking) {
+                seek.setProgress(svc.position());
+                pos.setText(time(svc.position()));
+                count.setText(countLine());   // the sleep timer's minutes go down
             }
             main.postDelayed(this, 500);
         }
@@ -68,23 +73,21 @@ public class AudioPlayerActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle b) {
-        org.pda.launcher.Ui.applyTheme(this);
+        Ui.applyTheme(this);
         super.onCreate(b);
-        org.pda.launcher.Ui.paintWindow(this);
-        src = Viewers.sourceOf(this);
-        if (src == null) return;
-        File f = src.file != null ? src.file : new File(src.name);
-        files = src.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
-        at = files.indexOf(f);
-        audio = getSystemService(AudioManager.class);
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        Ui.paintWindow(this);
+        if (!getIntent().getBooleanExtra(EXTRA_SHOW, false)) {
+            pending = Viewers.sourceOf(this);
+            if (pending == null) return;
+        }
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        header = new Header(this, src.file == null || f.getParentFile() == null ? "" : f.getParentFile().getName())
+        header = new Header(this, "")
                 .back(this::finish)
-                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.menu(this, v, src, files.get(at))));
+                .action(Ui.action(this, R.drawable.ic_more, "More", this::menu));
         header.showBack(true);
         root.addView(header.view());
         root.addView(Ui.divider(this));
@@ -117,7 +120,7 @@ public class AudioPlayerActivity extends Activity {
             @Override public void onStartTrackingTouch(SeekBar s) { seeking = true; }
             @Override public void onStopTrackingTouch(SeekBar s) {
                 seeking = false;
-                if (player != null) player.seekTo(s.getProgress());
+                if (svc != null) svc.seekTo(s.getProgress());
             }
         });
         body.addView(seek, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -133,34 +136,113 @@ public class AudioPlayerActivity extends Activity {
         LinearLayout keys = new LinearLayout(this);
         keys.setGravity(Gravity.CENTER);
         keys.setPadding(0, Ui.dp(this, 12), 0, 0);
-        keys.addView(big(Ui.action(this, R.drawable.ic_prev, "Previous", v -> prev())));
-        play = big(Ui.action(this, R.drawable.ic_pause, "Play or pause", v -> toggle()));
+        keys.addView(big(Ui.action(this, R.drawable.ic_prev, "Previous", v -> { if (svc != null) svc.prev(); })));
+        play = big(Ui.action(this, R.drawable.ic_pause, "Play or pause", v -> { if (svc != null) svc.toggle(); }));
         keys.addView(play);
-        keys.addView(big(Ui.action(this, R.drawable.ic_next, "Next", v -> go(at + 1, true))));
+        keys.addView(big(Ui.action(this, R.drawable.ic_next, "Next", v -> { if (svc != null) svc.next(); })));
         body.addView(keys);
         count = text(13, Ui.DIM);
         body.addView(count);
 
         setContentView(root);
-        go(at, true);
+        bindService(new Intent(this, PlaybackService.class), conn, BIND_AUTO_CREATE);
         main.post(tick);
     }
 
-    /** Another audio file tapped while this one plays: that folder, from that file. */
+    /** Another audio file tapped while this screen is up: that folder, from that file. */
     @Override
-    protected void onNewIntent(android.content.Intent intent) {
+    protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        if (intent.getBooleanExtra(EXTRA_SHOW, false)) return;
         Viewers.Source s = Viewers.sourceOf(this);
         if (s == null) return;
-        // The track already here, tapped again (the way back when out of Recents): keep playing.
-        if (s.file != null && src != null && s.file.equals(src.file) && files.get(at).equals(s.file)) return;
-        if (s.uri != null && src != null && s.uri.equals(src.uri)) return;
-        src = s;
-        File f = s.file != null ? s.file : new File(s.name);
-        files = s.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
-        header.setTitle(s.file == null || f.getParentFile() == null ? "" : f.getParentFile().getName());
-        go(files.indexOf(f), true);
+        pending = s;
+        if (svc != null) take();
+    }
+
+    /** What was opened, to the service; the track already playing, tapped again, plays on. */
+    private void take() {
+        Viewers.Source s = pending;
+        pending = null;
+        if (s != null && !svc.holds(s.file, s.file == null ? s.uri : null)) {
+            java.util.List<File> files = Viewers.siblings(s);
+            File f = s.file != null ? s.file : new File(s.name);
+            svc.play(files, Math.max(0, files.indexOf(f)), s.file == null ? s.uri : null);
+        }
+        if (!svc.loaded()) {   // the notification of a queue since closed
+            finish();
+            return;
+        }
+        changed();
+    }
+
+    /** The service changed: the track, its state, the timer. */
+    @Override
+    public void changed() {
+        if (svc == null || isDestroyed()) return;
+        if (!svc.loaded()) {   // stopped (✕ in the notification)
+            finish();
+            return;
+        }
+        File f = svc.current();
+        header.setTitle(svc.link() != null || f.getParentFile() == null ? "" : f.getParentFile().getName());
+        title.setText(svc.title);
+        artist.setText(svc.artist);
+        if (svc.art != null) {
+            cover.setImageBitmap(svc.art);
+            cover.setImageTintList(null);
+            cover.setPadding(0, 0, 0, 0);
+        } else {
+            cover.setImageResource(R.drawable.ic_audio);
+            cover.setImageTintList(ColorStateList.valueOf(Ui.LINE));
+            int p = Ui.dp(this, 48);
+            cover.setPadding(p, p, p, p);
+        }
+        seek.setMax(svc.duration());
+        len.setText(time(svc.duration()));
+        if (!seeking) {
+            seek.setProgress(svc.position());
+            pos.setText(time(svc.position()));
+        }
+        count.setText(countLine());
+        play.setImageResource(svc.playing() ? R.drawable.ic_pause : R.drawable.ic_play);
+    }
+
+    /** "3 / 12", and the sleep timer when it is set. */
+    private String countLine() {
+        String n = svc.count() > 1 ? (svc.index() + 1) + " / " + svc.count() : "";
+        long left = svc.sleepLeft();
+        String z = left == PlaybackService.SLEEP_END_OF_TRACK ? "Sleep at the end of this track"
+                : left > 0 ? "Sleep in " + DateUtils.formatElapsedTime((left + 999) / 1000) : "";
+        return n.isEmpty() ? z : z.isEmpty() ? n : n + "  ·  " + z;
+    }
+
+    private void menu(View anchor) {
+        if (svc == null || !svc.loaded()) return;
+        File f = svc.current();
+        Viewers.Source s = svc.link() != null ? new Viewers.Source(null, svc.link(), f.getName(), null, null)
+                : new Viewers.Source(f, null, f.getName(), null, null);
+        Viewers.menu(this, anchor, s, f, new String[] { "Sleep timer", "Stop" }, i -> {
+            if (i == 0) sleepMenu(anchor);
+            else svc.stop();
+        });
+    }
+
+    private void sleepMenu(View anchor) {
+        final long[] ms = { 0, 15 * 60_000L, 30 * 60_000L, 45 * 60_000L, 60 * 60_000L, PlaybackService.SLEEP_END_OF_TRACK };
+        final String[] names = { "Off", "In 15 minutes", "In 30 minutes", "In 45 minutes", "In 1 hour", "At the end of this track" };
+        long left = svc.sleepLeft();
+        PopMenu m = new PopMenu(this, anchor);
+        for (int i = 0; i < ms.length; i++) {
+            m.add(0, i, i, names[i]).setChecked(i == 0 ? left == 0 : ms[i] == PlaybackService.SLEEP_END_OF_TRACK
+                    && left == PlaybackService.SLEEP_END_OF_TRACK);
+        }
+        m.setOnMenuItemClickListener(item -> {
+            if (svc != null) svc.setSleep(ms[item.getItemId()]);
+            return true;
+        });
+        m.show();
     }
 
     private TextView text(int sp, int color) {
@@ -185,116 +267,11 @@ public class AudioPlayerActivity extends Activity {
         return DateUtils.formatElapsedTime(ms / 1000);
     }
 
-    /** Previous: back to this one's start after 3 s of it, else the one before. */
-    private void prev() {
-        if (player != null && player.getCurrentPosition() > 3000) player.seekTo(0);
-        else go(at - 1, true);
-    }
-
-    private void go(int i, boolean start) {
-        if (i < 0 || i >= files.size()) return;
-        at = i;
-        File f = files.get(i);
-        release();
-        tags(f);
-        count.setText(files.size() > 1 ? (i + 1) + " / " + files.size() : "");
-        try {
-            player = new MediaPlayer();
-            player.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
-            if (src.file != null) player.setDataSource(f.getPath());
-            else player.setDataSource(this, src.uri);
-            player.prepare();
-            player.setOnCompletionListener(mp -> {
-                if (at < files.size() - 1) go(at + 1, true);
-                else showPlaying();
-            });
-            seek.setMax(player.getDuration());
-            seek.setProgress(0);
-            len.setText(time(player.getDuration()));
-            pos.setText(time(0));
-            if (start && takeFocus()) player.start();
-        } catch (Exception e) {
-            release();
-            artist.setText("Cannot be played");
-        }
-        showPlaying();
-    }
-
-    /** Cover, title and artist from the file's tags. */
-    private void tags(File f) {
-        String t = null, a = null;
-        Bitmap art = null;
-        MediaMetadataRetriever r = new MediaMetadataRetriever();
-        try {
-            if (src.file != null) r.setDataSource(f.getPath());
-            else r.setDataSource(this, src.uri);
-            t = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-            a = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);
-            byte[] pic = r.getEmbeddedPicture();
-            if (pic != null) art = BitmapFactory.decodeByteArray(pic, 0, pic.length);
-        } catch (RuntimeException ignore) {
-        } finally {
-            try { r.release(); } catch (Exception ignore) {}
-        }
-        title.setText(t != null && !t.isEmpty() ? t : f.getName());
-        artist.setText(a != null ? a : "");
-        if (art != null) {
-            cover.setImageBitmap(art);
-            cover.setImageTintList(null);
-            cover.setPadding(0, 0, 0, 0);
-        } else {
-            cover.setImageResource(R.drawable.ic_audio);
-            cover.setImageTintList(ColorStateList.valueOf(Ui.LINE));
-            int p = Ui.dp(this, 48);
-            cover.setPadding(p, p, p, p);
-        }
-    }
-
-    private void toggle() {
-        if (player == null) {
-            go(at, true);
-            return;
-        }
-        if (player.isPlaying()) player.pause();
-        else if (takeFocus()) player.start();
-        showPlaying();
-    }
-
-    private void showPlaying() {
-        boolean on = player != null && player.isPlaying();
-        play.setImageResource(on ? R.drawable.ic_pause : R.drawable.ic_play);
-    }
-
-    private boolean takeFocus() {
-        if (focus == null) {
-            focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build())
-                    .setOnAudioFocusChangeListener(change -> {
-                        if (change < 0 && player != null && player.isPlaying()) {
-                            player.pause();
-                            showPlaying();
-                        }
-                    }, main)
-                    .build();
-        }
-        return audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-    }
-
-    private void release() {
-        if (player == null) return;
-        try {
-            player.release();
-        } catch (RuntimeException ignore) {}
-        player = null;
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         main.removeCallbacks(tick);
-        release();
-        if (focus != null) audio.abandonAudioFocusRequest(focus);
+        if (svc != null) svc.unlisten(this);
+        if (header != null) unbindService(conn);
     }
 }

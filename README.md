@@ -37,8 +37,8 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   counts them by kind): files,
   folders, links, apps and apps' shortcuts, in your order (a More tile when
   they pass a page). Tap to open (a file in its viewer, a folder in Files);
-  long-press to rename, move, remove, and for a file Open with, Details, Show
-  in folder. Add with + (a link, an app or one of its shortcuts), from Files
+  long-press to rename, move, remove, and for a file Open with, Open as,
+  Details, Show in folder. Add with + (a link, an app or one of its shortcuts), from Files
   (⋮ › Add to Briefcase), Applications (More, long-press › Add to Briefcase)
   or another app's Share › Add to Briefcase. Files follow Files' moves,
   renames and deletes; shortcuts are pinned so their app keeps them.
@@ -140,21 +140,28 @@ with the banners and the header plain for the words.
 
 ## Viewers
 
-Files, the Briefcase and Recent open text, images, audio and PDF in the
-launcher's own viewers, each in its own task (Home leaves it in Recents):
+Files, the Briefcase and Recent open text, images, audio, video and PDF in
+the launcher's own viewers, each in its own task (Home leaves it in Recents):
 
-- *Text*: edit and save (atomically), ⋮ for wrap, monospace, revert; asks
-  before leaving changes unsaved. Over 2 MB or binary: the system's app.
-- *Images*: fitted, pinch or double-tap to zoom, swipe for the folder's next.
-- *Audio*: the folder from the file tapped, cover, seek, previous/next; plays
-  on behind other apps, stops when closed.
+- *Text*: edit and save (atomically), ⋮ for find (every match marked, ‹ ›
+  between them), wrap, monospace, revert; asks before leaving changes
+  unsaved. Over 2 MB or binary: the system's app.
+- *Images*: fitted, pinch or double-tap to zoom, swipe for the folder's next;
+  ⋮ to rotate the view, share, delete (to Files' Trash).
+- *Audio*: the folder from the file tapped, cover, seek, previous/next. It
+  plays on when its screen is closed, with a notification (previous,
+  play/pause, next, close) and a media session for a headset's buttons;
+  headphones pulled out pause it; ⋮ for a sleep timer and Stop.
+- *Video*: fitted on black, a tap for the bars (play/pause, seek), swipe for
+  the folder's next; pauses when left and comes back where it was.
 - *PDF*: a page at a time, ‹ › or a swipe, pinch to zoom.
 
 Prefs › Viewers chooses, per kind, the built-in one or the system's app; a
-file's ⋮ › Open with… always offers the others.
+file's ⋮ › Open with… always offers the others, and Open as… takes a file as
+text, an image, audio or video whatever its name says.
 
 Other apps can use them too: PDA Launcher is in their *Open with* for text,
-images, audio and PDF (a link another app gives is read through it, and a
+images, audio, video and PDF (a link another app gives is read through it, and a
 text saved back if that app allows writing), and for a folder, which opens in
 Files (another app's folder becomes a location).
 

@@ -47,8 +47,8 @@ import java.util.concurrent.Executors;
  * {@link RemoteFs}. The header (‹ up, the folder's name, + and ⋮), the paged
  * list, the status line while working. Tap a folder to go in; a file opens
  * where Files would open it (a server's is fetched first into the app's cache;
- * another app's goes to it by its link). Long-press: Open with, Download to
- * the device, Rename, Delete, Details. +: New folder, Upload files (Android's
+ * another app's goes to it by its link). Long-press: Open with, Open as (on a
+ * copy), Download to the device, Rename, Delete, Details. +: New folder, Upload files (Android's
  * picker), Paste what Files copied. Every call to the place runs on one worker
  * thread, one at a time. Nothing goes to a trash here: a delete is the place's,
  * after a question.
@@ -300,6 +300,7 @@ public class LocationActivity extends Activity {
     private void entryMenu(View anchor, RemoteFs.Entry e) {
         PopMenu m = new PopMenu(this, anchor);
         if (!e.dir) m.add(0, 1, 0, "Open with…");
+        if (!e.dir) m.add(0, 6, 0, "Open as…");
         if (!e.dir) m.add(0, 2, 1, "Download to the device");
         m.add(0, 3, 2, "Rename");
         m.add(0, 4, 3, "Delete");
@@ -310,6 +311,7 @@ public class LocationActivity extends Activity {
                     if (fs instanceof DocsFs) view(((DocsFs) fs).uriOf(e.path), e.name, true);
                     else fetch(e, f -> FileDetails.openWith(this, f));
                     break;
+                case 6: fetch(e, f -> FileDetails.openAs(this, anchor, f)); break;
                 case 2: download(e); break;
                 case 3: rename(e); break;
                 case 4: delete(e); break;

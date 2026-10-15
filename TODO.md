@@ -15,7 +15,9 @@ and to leave Android's compatibility modes. Not a one-line change:
 - **Package visibility** (30+): the launcher queries with LauncherApps, which
   is fine; `getPackageArchiveInfo` and the APK icon are fine too. Check the
   intents for opening files and Android's settings screens (`<queries>`).
-- **Smaller ones:** POST_NOTIFICATIONS is not needed (no notifications);
+- **Smaller ones:** POST_NOTIFICATIONS (33+) for the audio player's
+  notification, asked when it first plays (without it the sound still plays,
+  the notification is hidden); a `mediaPlayback` foreground service type (34+);
   PendingIntent mutability (none left); FileShare and MediaStore links keep
   working; REQUEST_INSTALL_PACKAGES is restricted on Play (drop it, or justify).
 - Play also wants an App Bundle (AAB): `aapt2 link --proto-format` and
@@ -72,21 +74,11 @@ Still for Today: something to write brief.md (Termux, `claude -p` on a schedule)
    permission the user turns on), off by default.
 5. **Backup and restore** of the settings, favourites and hidden apps to a file.
 
-## Files: Open with, Details
+## Files: Open with, Open as, Details
 
-Done: Open with… and Details (a Card) in Files' selection menu and the
-Briefcase's. Left: "Open as…" (text, image, audio, video, any) for a file whose
-type is wrong or missing; the APK's own icon on its card.
-
-- **Open with…** in a file's menu (and the selection's ⋮ for one file):
-  Android's chooser for the file's type (`Intent.createChooser` with the same
-  link as a tap), so a file can go to another app than the default once.
-- **Details** for a file or a folder (one selected, or long-press): name, path
-  (copyable), size (a folder's counted in the background, with its number of
-  files), modified date, type (MIME), whether it is hidden or a link (and to
-  what); for an image its dimensions, for audio and video its length (and
-  title, artist), for an APK its package, version and whether it is installed.
-  Shown in a PopMenu-like card, in the app's look, not a system dialog.
+Done: Open with…, Open as… (text, image, audio, video, any app) and Details (a
+Card, with an APK's icon) in Files' selection menu, the Briefcase's, a
+location's and the viewers' ⋮.
 
 ## Remember where one was
 
@@ -141,29 +133,21 @@ Open the common kinds inside the launcher, in its look (black, paged, line
 icons), instead of handing every file to another app. "Open with…" stays in
 the file's menu, and a setting chooses built-in or the system's app per kind.
 
-Done, a first simple version (Prefs › Viewers, per kind; `viewers/`): text
-editor (save atomically, wrap, monospace, revert; over 2 MB or binary goes to
-the system's app), image viewer (fitted, pinch/double-tap zoom, swipe through
-the folder, EXIF rotation), audio player (the folder as the queue, cover,
-seek, focus; stops when closed), PDF reader (PdfRenderer, ‹ n/count ›, swipe,
-zoom). Each opens in its own task, out of Recents unless asked for. Left from the list below: find, pages in
-the editor; rotate/share/delete in images; a foreground service, notification,
-media session and sleep timer for audio; video and archives.
+Done (Prefs › Viewers, per kind; `viewers/`): text editor (save atomically,
+find, wrap, monospace, revert; over 2 MB or binary goes to the system's app),
+image viewer (fitted, pinch/double-tap zoom, swipe through the folder, EXIF
+rotation; rotate the view, share, delete to the Trash), audio player (the
+folder as the queue, cover, seek; PlaybackService: plays on when closed, a
+notification, a media session, pauses when headphones go, sleep timer), video
+player (VideoView, swipe through the folder, comes back where it was), PDF
+reader (PdfRenderer, ‹ n/count ›, swipe, zoom). Each opens in its own task,
+out of Recents unless asked for. Left:
 
-- **Text editor:** plain text, .md, .json, .log, .sh, .conf. Open, edit, save
-  (atomically, through FileOps so Favorites and MediaStore follow), find, wrap
-  on/off, a monospace option; refuse files too large to hold (say over 2 MB)
-  and binary ones. Pages instead of scrolling, like the lists.
-- **Image viewer:** one image at a time, sampled to the screen (as Thumbs
-  does, larger), pinch to zoom and pan, a swipe or ‹ › for the next image of
-  the folder or of the media root, rotate, share, delete, details (size,
-  date, dimensions; EXIF taken date if cheap).
-- **Audio player:** MediaPlayer in a foreground service (a notification with
-  play/pause, so it plays on with the screen off), the folder or the Audio
-  root as the queue, cover from the embedded picture, seek bar, sleep timer.
-  Media session for the headset buttons.
-- Later, maybe: video (VideoView), PDF (PdfRenderer, pages fit the paged
-  look well), and archives (zip with java.util.zip: list, extract).
+- Archives: zip with java.util.zip (list, extract all or one), as a viewer.
+- Images: rotate the file itself (EXIF orientation for a JPEG), not only the view.
+- Audio: the queue kept across a killed process; a queue of the Audio root
+  (MediaStore), not only a folder.
+- Video: subtitles (.srt beside the file, `MediaPlayer.addTimedTextSource`).
 
 ## Network storage
 

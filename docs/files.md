@@ -68,15 +68,16 @@ that contain the text (at most 200).
 - Either kind opens in its own screen in the Files look (LocationActivity over
   RemoteFs): folders in; a file opens where Files would open it (a server's
   file is fetched first into the app's cache under Android/data; another app's
-  goes by its link), Open with, Download to the device, Rename, Delete (the
-  place's own, no trash, after a question), Details; + for a new folder, to
-  upload files from Android's picker, or to paste what Files copied (folders
-  too). Hidden names follow Files' Show hidden files. One operation at a
+  goes by its link), Open with, Open as (on a fetched copy), Download to the
+  device, Rename, Delete (the place's own, no trash, after a question),
+  Details; + for a new folder, to upload files from Android's picker, or to
+  paste what Files copied (folders too). Hidden names follow Files' Show hidden files. One operation at a
   time, on a worker thread, with the progress in the status line.
 - Long-press starts a selection: Copy, Move, Delete (to the Trash), Share, and
-  ⋮ with Open with… and Details (one item: path, type, size, a folder's count,
-  dates, a link's target, an image's pixels, a song's or a video's length, an
-  APK's package and version), Rename, Select all, Show in folder (outside a folder), Add to or
+  ⋮ with Open with…, Open as… (text, image, audio, video or any app, for a
+  name that says the wrong kind or none) and Details (one item: path, type,
+  size, a folder's count, dates, a link's target, an image's pixels, a song's
+  or a video's length, an APK's icon, package and version), Rename, Select all, Show in folder (outside a folder), Add to or
   Remove from Briefcase (a star marks what is in it). Copied or cut items wait in a bar until *Paste here* in a folder.
 - ⋮ outside a selection: New folder, Show/Hide hidden files,
   Storage (back to the first screen).

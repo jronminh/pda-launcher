@@ -17,8 +17,11 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- The audio player plays on with the screen off. -->
+    <!-- The audio player plays on with the screen off, and with its screen closed
+         (a foreground service with a notification; no notification permission
+         is asked while targetSdk is under 33). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- The Timer tile asks the clock app for a timer. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
@@ -127,11 +130,22 @@
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize" />
         <activity
+            android:name=".viewers.VideoPlayerActivity"
+            android:autoRemoveFromRecents="true"
+            android:label="Video"
+            android:taskAffinity="org.pda.launcher.video"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
+        <activity
             android:name=".viewers.PdfViewerActivity"
             android:autoRemoveFromRecents="true"
             android:label="PDF"
             android:taskAffinity="org.pda.launcher.pdf"
             android:configChanges="orientation|screenSize" />
+
+        <!-- What the audio player plays: on when its screen is closed, with a notification. -->
+        <service
+            android:name=".viewers.PlaybackService"
+            android:exported="false" />
 
         <!-- Share › Add to Briefcase: a link from another app into the Briefcase. -->
         <activity
@@ -190,6 +204,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="audio/*" />
                 <data android:mimeType="application/ogg" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".open.Video"
+            android:targetActivity=".viewers.VideoPlayerActivity"
+            android:label="@string/app_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
             </intent-filter>
         </activity-alias>
         <activity-alias
