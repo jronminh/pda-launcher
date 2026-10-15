@@ -165,7 +165,9 @@ public class HomeActivity extends Activity {
     public void onBackPressed() {
         if (settingsOpen) { settings.onBack(); return; }
         if (tab == APPS) {
-            if (!apps.onBack()) super.onBackPressed();
+            // Nothing left to go back to: a home screen stays. (The default would
+            // close it, and the system would only open it again.)
+            apps.onBack();
             return;
         }
         if (tab == FILES && files.onBack()) return;
@@ -188,14 +190,15 @@ public class HomeActivity extends Activity {
 
     void show(int which) {
         if (which == tab) return;
-        boolean first = tab < 0;
+        int from = tab;
         tab = which;
         apps.view().setVisibility(which == APPS ? View.VISIBLE : View.GONE);
         favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
         note.view().setVisibility(which == NOTE ? View.VISIBLE : View.GONE);
         settingsTab.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
-        if (!first) Anim.fadeIn(tabView(which));
+        // The new tab slides in from its side of the tab bar.
+        if (from >= 0) Anim.slideIn(tabView(which), which - from);
         if (which == SETTINGS) settingsTab.onShow();
         else settingsTab.onHide();
         if (which == FAVORITES) favorites.onShow();

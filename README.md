@@ -54,8 +54,8 @@ Back returns to Apps; Home on the home screen opens the tab chosen in Settings
 (Apps by default, on its first page), Home from another app comes back to the
 tab that was open. The look is pure black for an OLED screen and flat (inspired
 by the Onyx Boox launcher). Motion is short and optional (Settings › Launcher ›
-Animations, on by default): a tab fades in, a page or a folder slides in from
-its side, a menu grows from where it was asked for, a tab's settings rise. The
+Animations, on by default): a tab, a page or a folder slides in from its
+side, a menu grows from where it was asked for, a tab's settings rise. The
 system's animator duration scale applies too.
 
 "Show/Hide apps" is a launcher-only filter stored in the launcher's preferences:

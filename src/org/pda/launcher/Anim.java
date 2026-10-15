@@ -5,8 +5,8 @@ import android.view.animation.DecelerateInterpolator;
 
 /**
  * The few motions of the app, all short and all off with one setting
- * (launcher.animations): a tab fades in, a page or a folder slides in from the
- * side it comes from, a menu grows from where it was asked for, a settings
+ * (launcher.animations): a tab, a page or a folder slides in from the side it
+ * comes from, a menu grows from where it was asked for, a settings
  * screen rises. They run on the view's animator, so the system's animator
  * duration scale (Developer options, or the PDA panel) applies too: at 0 they
  * are instant.
@@ -19,14 +19,6 @@ public final class Anim {
 
     public static boolean on() {
         return Config.getBool("launcher.animations");
-    }
-
-    /** A view that just became visible: from transparent. */
-    public static void fadeIn(View v) {
-        if (!on()) return;
-        v.animate().cancel();
-        v.setAlpha(0f);
-        v.animate().alpha(1f).setDuration(SHORT).setInterpolator(new DecelerateInterpolator()).start();
     }
 
     /** New content from the side it comes from: {@code dir} > 0 from the right, < 0 from the left. */
