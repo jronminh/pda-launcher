@@ -43,6 +43,8 @@ public class HomeActivity extends Activity {
     private boolean settingsOpen;
     private boolean stopped = true;   // no screen of ours is showing
     private boolean appsRead;         // the apps are read once; LauncherApps tells changes after
+    private View cover;               // black over the tabs while the system brings the launcher back
+    private final Runnable uncoverLate = this::uncover;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,7 +78,19 @@ public class HomeActivity extends Activity {
         bar.addView(row);
         root.addView(bar, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        setContentView(root);
+        // The cover: the home screen comes back under a black sheet, lifted when
+        // the system's transition is over (onEnterAnimationComplete). Returning
+        // from Recents, One UI's Recents closes over the launcher, which is drawn
+        // long before Recents is gone; with the sheet the eye sees black, then
+        // the launcher.
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        frame.addView(root);
+        cover = new View(this);
+        cover.setBackgroundColor(Ui.BG);
+        cover.setClickable(true);   // nothing under it takes a tap meanwhile
+        cover.setVisibility(View.GONE);
+        frame.addView(cover);
+        setContentView(frame);
 
         apps = new AppsTab(this, this::openSettings);
         favorites = new FavoritesTab(this, new FavoritesTab.Host() {
@@ -119,6 +133,34 @@ public class HomeActivity extends Activity {
         int home = homeTab();
         if (!stopped && home == APPS) apps.reset();
         show(tabOf(intent, stopped ? tab : home));
+    }
+
+    /** Back from another app or Recents (not the first start): cover the tabs. */
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        cover.animate().cancel();
+        cover.setAlpha(1f);
+        cover.setVisibility(View.VISIBLE);
+        cover.removeCallbacks(uncoverLate);
+        // In case the system never says. Measured on One UI 4: it says after
+        // 280-380 ms, at most 550 ms seen.
+        cover.postDelayed(uncoverLate, 1000);
+    }
+
+    /** The system's transition that brought the launcher back is over. */
+    @Override
+    public void onEnterAnimationComplete() {
+        super.onEnterAnimationComplete();
+        uncover();
+    }
+
+    private void uncover() {
+        cover.removeCallbacks(uncoverLate);
+        if (cover.getVisibility() != View.VISIBLE) return;
+        if (!Anim.on()) { cover.setVisibility(View.GONE); return; }
+        cover.animate().alpha(0f).setDuration(150)
+                .withEndAction(() -> cover.setVisibility(View.GONE)).start();
     }
 
     @Override

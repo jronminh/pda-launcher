@@ -26,7 +26,9 @@ and to leave Android's compatibility modes. Not a one-line change:
 With a third-party home, Recents is One UI Home's (com.sec.android.app.launcher,
 RecentsActivity), so going to and from it swaps two launchers' windows. Done:
 a black window background (it was the theme's grey), `resumeWhilePausing` (as
-Launcher3), and no app list reread on resume. Left, the system's: Home pressed
+Launcher3), no app list reread on resume, and a black cover over the tabs from
+onRestart until onEnterAnimationComplete (280-380 ms measured), so the
+launcher is not seen drawn behind a Recents still closing. Left, the system's: Home pressed
 in Recents closes One UI's Recents over this launcher instead of zooming into
 it, as only One UI Home can.
 
