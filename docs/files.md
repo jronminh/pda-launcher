@@ -23,10 +23,12 @@ that contain the text (at most 200).
 
 ## The screens
 
-- **First screen:** how full storage is (a bar), then the roots.
+- **First screen:** how full storage is (a banner with a bar), over the roots,
+  shown in the tab's view (details, list or grid).
 - **A folder:** the path as crumbs (each one goes back there), folders first,
   then the sort: name, date modified, size or type. Choosing the current sort
-  again turns the order round. Hidden files are off by default (⋮).
+  again turns the order round. Hidden files are off by default (⋮). ‹ in the
+  header goes back, as Back does.
 - Lists turn pages (`‹ 1/3 ›` or a horizontal swipe); the rows per page follow
   the screen height. Navigation is a history: Back returns to the place before,
   on the page it was on.
@@ -34,9 +36,11 @@ that contain the text (at most 200).
 ## Acting on files
 
 - Tap a folder to open it, a file to open it in the app that handles it. A file
-  leaves the app as `content://org.pda.launcher.files/<path>` with a read grant
-  (`files/FileShare.java`, in place of androidx's FileProvider); only files under
-  shared storage are served.
+  leaves the app with a read grant, as MediaStore's link when MediaStore knows
+  it, else as `content://org.pda.launcher.files/<path>` (`files/FileShare.java`,
+  in place of androidx's FileProvider; only files under shared storage are
+  served). MediaStore first because Android kills an app that holds a link to a
+  provider whose process dies: updating the launcher killed Termux that way.
 - Long-press starts a selection: Copy, Move, Delete (after a question), Share, and
   ⋮ with Rename, Select all, Show in folder (outside a folder), Add to or
   Remove from favorites (a star marks a favourite in the list). Copied or cut items wait in a bar until *Paste here* in a folder.
@@ -48,7 +52,16 @@ that contain the text (at most 200).
   is copied and deleted as a link; a folder cannot go inside itself. Every
   changed path goes to the media scanner, so the media roots follow.
 
+## Thumbnails
+
+Small and rough on purpose, enough to tell files apart (`files/Thumbs.java`): an
+image itself, a frame of a video, an audio file's embedded cover, an APK's icon,
+and for a folder the first image in it (of its first 200 entries). Two
+background threads decode at about 128 px; the results live only in memory (an
+LRU of 8 MB, keyed by path and date), and a file with none keeps its line icon.
+Files and Favorites show them in every view.
+
 ## Not done
 
-Thumbnails, a grid view, compressing and extracting, details, and progress in a
-notification for long copies.
+Compressing and extracting, details, and progress in a notification for long
+copies.

@@ -7,7 +7,6 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.graphics.drawable.Drawable;
@@ -15,9 +14,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
 import android.provider.Settings;
-import android.text.Editable;
-import android.text.TextUtils;
-import android.text.TextWatcher;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
 import android.view.Gravity;
@@ -35,6 +31,7 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.pda.launcher.Header;
 import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
 import org.pda.launcher.R;
@@ -96,9 +93,6 @@ public final class FilesTab {
         }
     }
 
-    private static final String PREFS = "files";
-    private static final int SORT_NAME = 0, SORT_DATE = 1, SORT_SIZE = 2, SORT_TYPE = 3;
-    private static final String[] SORTS = { "Name", "Date modified", "Size", "Type" };
 
     // What was copied or cut: kept across screens until it is pasted or dropped.
     private static List<File> clip;
@@ -106,13 +100,12 @@ public final class FilesTab {
 
     private final Activity act;
     private final java.util.function.Consumer<String> openSettings;
-    private final SharedPreferences prefs;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private final LinearLayout root;
-    private final TextView title;
-    private final EditText search;
-    private final View searchBtn, sortBtn, moreBtn, closeBtn;
+    private final Header header;
+    private final View sortBtn, moreBtn, closeBtn;
+    private final LinearLayout banner;    // the first screen: how full storage is
     private final HorizontalScrollView crumbScroll;
     private final LinearLayout crumbs;
     private final PagedView list;
@@ -128,59 +121,46 @@ public final class FilesTab {
     private final Set<File> selected = new LinkedHashSet<>();
     private Set<File> favs = new java.util.HashSet<>();
     private List<File> listing = new ArrayList<>();   // the folder as read, before the search filter
-    private String query = "";
     private int generation;
     private boolean busy;
     private boolean noAccess;   // no storage permission: the page asks for it
 
     private final Runnable runSearch = this::load;
-    private final Config.Listener onConfig = this::render;
+    private final Config.Listener onConfig = this::load;   // the order, hidden files, the view
 
     /** {@code openSettings} opens a settings screen: "files" for this tab's. */
     public FilesTab(Activity act, java.util.function.Consumer<String> openSettings) {
         this.act = act;
         this.openSettings = openSettings;
-        prefs = act.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        // The header: the title (or the search box), then the actions.
-        LinearLayout titleBox = new LinearLayout(act);
-        title = Ui.title(act, "Files");
-        title.setEllipsize(TextUtils.TruncateAt.START);
-        search = new EditText(act);
-        search.setSingleLine(true);
-        search.setHint("Search");
-        search.setTextColor(Ui.TEXT);
-        search.setHintTextColor(Ui.DIM);
-        search.setBackground(null);
-        search.setPadding(0, 0, 0, 0);
-        search.setVisibility(View.GONE);
-        search.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(Editable s) {
-                query = s.toString().trim();
-                pager.setPage(0);
-                // A folder filters what it already read; elsewhere the media index is asked.
-                main.removeCallbacks(runSearch);
-                if (place().mode == Mode.FOLDER) showItems(filter(listing));
-                else main.postDelayed(runSearch, 300);
-            }
-        });
-        titleBox.addView(title);
-        titleBox.addView(search, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        searchBtn = Ui.action(act, android.R.drawable.ic_menu_search, "Search", v -> toggleSearch());
-        sortBtn = Ui.action(act, android.R.drawable.ic_menu_sort_by_size, "Sort", v -> showSort(v));
+        // The header: ‹ (when there is a place to go back to), search, sort, the
+        // view, and the menu; a selection shows ✕ instead.
+        pager = new Pager(act);
+        sortBtn = Header.sort(act, "files.sort", "files.desc", "Name", "Date modified", "Size", "Type");
         moreBtn = Ui.textAction(act, "⋮", v -> showMenu(v));
         closeBtn = Ui.textAction(act, "✕", v -> clearSelection());
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("files.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("files.view"), m -> Config.set(act, "files.view", m)));
-        root.addView(Ui.header(act, titleBox, searchBtn, viewBtn, sortBtn, closeBtn, moreBtn));
+        header = new Header(act, "Files")
+                .back(this::onBack)
+                .search(q -> {
+                    pager.setPage(0);
+                    // A folder filters what it already read; elsewhere the media index is asked.
+                    main.removeCallbacks(runSearch);
+                    if (place().mode == Mode.FOLDER) showItems(filter(listing));
+                    else main.postDelayed(runSearch, 300);
+                })
+                .action(sortBtn).action(viewBtn).action(closeBtn).action(moreBtn);
+        root.addView(header.view());
         root.addView(Ui.divider(act));
+
+        banner = new LinearLayout(act);
+        banner.setOrientation(LinearLayout.VERTICAL);
+        root.addView(banner);
 
         // The path: Internal storage › Download › ..., each part a way back.
         crumbs = new LinearLayout(act);
@@ -192,7 +172,6 @@ public final class FilesTab {
         root.addView(crumbScroll);
 
         // The current page, as details, a list or a grid; a message can cover it.
-        pager = new Pager(act);
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return items.size(); }
@@ -214,6 +193,10 @@ public final class FilesTab {
                 return f != null && selected.contains(f);
             }
             @Override public boolean dim(int i) { return false; }
+            @Override public void thumb(int i, ImageView icon) {
+                File f = items.get(i).file;
+                if (f != null && !noAccess) Thumbs.into(act, f, icon);
+            }
             @Override public void click(int i, View v) { tap(items.get(i)); }
             @Override public boolean longClick(int i, View v) {
                 File f = items.get(i).file;
@@ -296,7 +279,7 @@ public final class FilesTab {
     /** Back: the selection, the search, then the history. Returns true if it did something. */
     public boolean onBack() {
         if (!selected.isEmpty()) { clearSelection(); return true; }
-        if (search.getVisibility() == View.VISIBLE) { closeSearch(); return true; }
+        if (header.searching()) { header.closeSearch(); return true; }
         if (history.size() > 1) {
             history.remove(history.size() - 1);
             pager.setPage(place().page);
@@ -308,11 +291,11 @@ public final class FilesTab {
 
     /** Show a folder, from another tab (Favorites): the first screen, then the folder. */
     public void openFolder(File dir) {
+        if (header.searching()) header.closeSearch();
         history.clear();
         history.add(new Place(Mode.HOME, null, null));
         history.add(new Place(Mode.FOLDER, dir, null));
         selected.clear();
-        if (search.getVisibility() == View.VISIBLE) closeSearch();
         pager.setPage(0);
         load();
     }
@@ -329,10 +312,10 @@ public final class FilesTab {
     }
 
     private void go(Place p) {
+        if (header.searching()) header.closeSearch();
         place().page = pager.page();
         history.add(p);
         selected.clear();
-        if (search.getVisibility() == View.VISIBLE) closeSearch();
         pager.setPage(0);
         load();
     }
@@ -356,9 +339,9 @@ public final class FilesTab {
         noAccess = !granted();
         if (noAccess) { items.clear(); render(); return; }
         final Place p = place();
-        final String q = query;
-        final int sort = prefs.getInt("sort", SORT_NAME);
-        final boolean desc = prefs.getBoolean("desc", false);
+        final String q = header.query();
+        final String sort = Config.get("files.sort");
+        final boolean desc = Config.getBool("files.desc");
         final boolean hidden = Config.getBool("files.showHidden");
         favs = new java.util.HashSet<>(Favorites.load(act));
         final int gen = ++generation;
@@ -370,6 +353,7 @@ public final class FilesTab {
                 sort(files, sort, desc);
             } else if (!q.isEmpty()) {
                 files = Roots.search(act, q);
+                sort(files, sort, desc);
             } else if (p.mode == Mode.MEDIA) {
                 files = Roots.query(act, p.root.kind);
                 if (p.root.kind != Roots.Kind.RECENT) sort(files, sort, desc);
@@ -384,8 +368,8 @@ public final class FilesTab {
     }
 
     private List<File> filter(List<File> files) {
-        if (query.isEmpty()) return files;
-        String q = query.toLowerCase(Locale.ROOT);
+        if (header.query().isEmpty()) return files;
+        String q = header.query().toLowerCase(Locale.ROOT);
         List<File> out = new ArrayList<>();
         for (File f : files) if (f.getName().toLowerCase(Locale.ROOT).contains(q)) out.add(f);
         return out;
@@ -393,7 +377,7 @@ public final class FilesTab {
 
     private void showItems(List<File> files) {
         items.clear();
-        if (place().mode == Mode.HOME && query.isEmpty()) {
+        if (place().mode == Mode.HOME && header.query().isEmpty()) {
             for (Roots.Root r : Roots.all()) items.add(new Item(null, r));
         } else {
             for (File f : files) items.add(new Item(f, null));
@@ -402,15 +386,16 @@ public final class FilesTab {
         render();
     }
 
-    /** Folders first, then the chosen order; a tie is broken by name. */
-    private static void sort(List<File> files, int by, boolean desc) {
+    /** Folders first, then the order {@code by} (name, date, size, type); a tie is
+     *  broken by name. */
+    static void sort(List<File> files, String by, boolean desc) {
         Comparator<File> name = (a, b) -> a.getName().compareToIgnoreCase(b.getName());
         Comparator<File> order;
         switch (by) {
-            case SORT_DATE: order = (a, b) -> Long.compare(a.lastModified(), b.lastModified()); break;
-            case SORT_SIZE: order = (a, b) -> Long.compare(a.isDirectory() ? 0 : a.length(),
-                                                           b.isDirectory() ? 0 : b.length()); break;
-            case SORT_TYPE: order = (a, b) -> ext(a).compareToIgnoreCase(ext(b)); break;
+            case "date": order = (a, b) -> Long.compare(a.lastModified(), b.lastModified()); break;
+            case "size": order = (a, b) -> Long.compare(a.isDirectory() ? 0 : a.length(),
+                                                        b.isDirectory() ? 0 : b.length()); break;
+            case "type": order = (a, b) -> ext(a).compareToIgnoreCase(ext(b)); break;
             default: order = name;
         }
         Comparator<File> chosen = desc ? order.reversed() : order;
@@ -433,35 +418,36 @@ public final class FilesTab {
     private void render() {
         Place p = place();
         boolean selecting = !selected.isEmpty();
-        boolean searching = search.getVisibility() == View.VISIBLE;
+        boolean home = p.mode == Mode.HOME && header.query().isEmpty();
 
         // The header.
-        if (selecting) title.setText(selected.size() + " selected");
-        else if (p.mode == Mode.FOLDER) title.setText(p.dir.equals(Roots.storage()) ? "Internal storage" : p.dir.getName());
-        else if (p.mode == Mode.MEDIA) title.setText(p.root.title);
-        else title.setText("Files");
-        title.setVisibility(searching && !selecting ? View.GONE : View.VISIBLE);
-        search.setVisibility(searching && !selecting ? View.VISIBLE : View.GONE);
-        searchBtn.setVisibility(selecting ? View.GONE : View.VISIBLE);
-        sortBtn.setVisibility(selecting || p.mode == Mode.HOME ? View.GONE : View.VISIBLE);
+        if (selecting) header.setTitle(selected.size() + " selected");
+        else if (p.mode == Mode.FOLDER) header.setTitle(p.dir.equals(Roots.storage()) ? "Internal storage" : p.dir.getName());
+        else if (p.mode == Mode.MEDIA) header.setTitle(p.root.title);
+        else header.setTitle("Files");
+        header.showBack(!selecting && history.size() > 1);
+        header.setSearchEnabled(!selecting);
+        sortBtn.setVisibility(selecting || home ? View.GONE : View.VISIBLE);
         closeBtn.setVisibility(selecting ? View.VISIBLE : View.GONE);
         moreBtn.setVisibility(selecting ? View.GONE : View.VISIBLE);
+        String mode = Config.get("files.view");
+        viewBtn.setImageResource(PagedView.iconOf(mode));
+        viewBtn.setVisibility(selecting ? View.GONE : View.VISIBLE);
 
         renderCrumbs(p);
 
+        // The first screen: how full storage is, over the roots.
+        banner.removeAllViews();
+        if (home && !noAccess) banner.addView(storageRow());
+        banner.setVisibility(banner.getChildCount() > 0 ? View.VISIBLE : View.GONE);
+
         // The page.
-        // The first screen is a menu of roots under the storage bar: always details.
-        boolean home = p.mode == Mode.HOME && query.isEmpty();
-        String mode = Config.get("files.view");
-        viewBtn.setImageResource(PagedView.iconOf(mode));
-        viewBtn.setVisibility(selecting || home ? View.GONE : View.VISIBLE);
-        list.setMode(home ? PagedView.DETAILS : mode);
+        list.setMode(mode);
         list.setGrid(4, 0);
-        list.setLead(home ? storageRow() : null);
         list.refresh();
         overlay.removeAllViews();
         if (noAccess) overlay.addView(noAccessPanel());
-        else if (items.isEmpty()) overlay.addView(message(p.mode == Mode.FOLDER && query.isEmpty()
+        else if (items.isEmpty()) overlay.addView(message(p.mode == Mode.FOLDER && header.query().isEmpty()
                 ? "This folder is empty" : "Nothing here"));
         overlay.setVisibility(overlay.getChildCount() > 0 ? View.VISIBLE : View.GONE);
 
@@ -664,7 +650,7 @@ public final class FilesTab {
     /** Open a file in the app that handles its type. */
     static void open(Context c, File f) {
         Intent i = new Intent(Intent.ACTION_VIEW)
-                .setDataAndType(FileShare.uriFor(f), FileShare.mimeOf(f))
+                .setDataAndType(FileShare.linkFor(c, f), FileShare.mimeOf(f))
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             c.startActivity(i);
@@ -675,12 +661,16 @@ public final class FilesTab {
 
     private void share() {
         ArrayList<Uri> uris = new ArrayList<>();
-        for (File f : selected) if (f.isFile()) uris.add(FileShare.uriFor(f));
+        File first = null;
+        for (File f : selected) {
+            if (!f.isFile()) continue;
+            if (first == null) first = f;
+            uris.add(FileShare.linkFor(act, f));
+        }
         if (uris.isEmpty()) { toast("Folders cannot be shared"); return; }
         Intent send;
         if (uris.size() == 1) {
-            File f = new File(uris.get(0).getPath());
-            send = new Intent(Intent.ACTION_SEND).setType(FileShare.mimeOf(f))
+            send = new Intent(Intent.ACTION_SEND).setType(FileShare.mimeOf(first))
                     .putExtra(Intent.EXTRA_STREAM, uris.get(0));
         } else {
             send = new Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*")
@@ -796,25 +786,6 @@ public final class FilesTab {
 
     // --- menus ---------------------------------------------------------------------------
 
-    private void showSort(View anchor) {
-        PopupMenu pm = new PopupMenu(act, anchor);
-        int sort = prefs.getInt("sort", SORT_NAME);
-        boolean desc = prefs.getBoolean("desc", false);
-        for (int i = 0; i < SORTS.length; i++) {
-            String arrow = i == sort ? (desc ? "  ↓" : "  ↑") : "";
-            pm.getMenu().add(0, i, i, SORTS[i] + arrow);
-        }
-        pm.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-            // The same choice again turns the order round, as DocumentsUI's column headers do.
-            boolean d = id == sort ? !desc : (id == SORT_DATE || id == SORT_SIZE);
-            prefs.edit().putInt("sort", id).putBoolean("desc", d).apply();
-            load();
-            return true;
-        });
-        pm.show();
-    }
-
     private void showMenu(View anchor) {
         final int NEW_FOLDER = 1, HIDDEN = 2, HOME = 4, SETTINGS = 5;
         Place p = place();
@@ -873,26 +844,6 @@ public final class FilesTab {
     }
 
     // --- search and the rest -------------------------------------------------------------
-
-    private void toggleSearch() {
-        if (search.getVisibility() == View.VISIBLE) { closeSearch(); return; }
-        search.setVisibility(View.VISIBLE);
-        render();
-        search.requestFocus();
-        InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT);
-    }
-
-    private void closeSearch() {
-        hideIme();
-        main.removeCallbacks(runSearch);
-        search.setVisibility(View.GONE);
-        if (!query.isEmpty()) {
-            search.setText("");   // clears query and shows the place again
-            load();
-        }
-        render();
-    }
 
     private void hideIme() {
         InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);

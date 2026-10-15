@@ -194,6 +194,7 @@ public class HomeActivity extends Activity {
         if (which == FILES) files.onShow();
         else files.onHide();
         if (which != NOTE) note.onHide();
+        if (which != FAVORITES) favorites.onHide();
         for (int i = 0; i < buttons.length; i++) {
             buttons[i].setAlpha(i == which ? 1f : 0.45f);
             buttons[i].setTypeface(null, i == which ? android.graphics.Typeface.BOLD

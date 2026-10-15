@@ -48,6 +48,9 @@ public final class PagedView extends LinearLayout {
 
         /** @return true if the long press was used. */
         boolean longClick(int i, View v);
+
+        /** A chance to put a thumbnail in the icon's place later (default: none). */
+        default void thumb(int i, ImageView icon) {}
     }
 
     private static final int LIST_DP = 48;
@@ -188,6 +191,7 @@ public final class PagedView extends LinearLayout {
 
         ImageView icon = new ImageView(c);
         icon.setImageDrawable(binder.icon(i));
+        binder.thumb(i, icon);
         int s = Ui.dp(c, details ? 36 : 24);
         LayoutParams ip = new LayoutParams(s, s);
         ip.rightMargin = Ui.dp(c, 16);
@@ -220,6 +224,7 @@ public final class PagedView extends LinearLayout {
 
         ImageView icon = new ImageView(c);
         icon.setImageDrawable(binder.icon(i));
+        binder.thumb(i, icon);
         int s = Ui.dp(c, 48);
         cell.addView(icon, new LayoutParams(s, s));
 

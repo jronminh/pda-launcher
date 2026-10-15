@@ -1,12 +1,15 @@
 package org.pda.launcher.files;
 
 import android.content.ContentProvider;
+import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.webkit.MimeTypeMap;
 
@@ -25,6 +28,40 @@ import java.util.Locale;
 public final class FileShare extends ContentProvider {
 
     static final String AUTHORITY = "org.pda.launcher.files";
+
+    /**
+     * The link to hand another app for {@code f}. MediaStore's when the file is in
+     * its index: MediaProvider is the system's, so the reader never depends on this
+     * app's process. A reader that holds a link to this provider is killed with it
+     * when the launcher is updated (Android stops the apps that use a dying
+     * provider), and Termux was, twice. Only files MediaStore does not know (hidden
+     * folders, say) still go through this provider.
+     */
+    static Uri linkFor(Context c, File f) {
+        Uri media = mediaUri(c, f);
+        return media != null ? media : uriFor(f);
+    }
+
+    @SuppressWarnings("deprecation")   // DATA: the app targets 28 and works with paths
+    private static Uri mediaUri(Context c, File f) {
+        Uri files = MediaStore.Files.getContentUri("external");
+        String[] cols = { MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE };
+        try (Cursor cur = c.getContentResolver().query(files, cols,
+                MediaStore.Files.FileColumns.DATA + " = ?", new String[] { f.getAbsolutePath() }, null)) {
+            if (cur == null || !cur.moveToFirst()) return null;
+            long id = cur.getLong(0);
+            Uri base;
+            switch (cur.getInt(1)) {
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE: base = MediaStore.Images.Media.EXTERNAL_CONTENT_URI; break;
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO: base = MediaStore.Video.Media.EXTERNAL_CONTENT_URI; break;
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO: base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI; break;
+                default: base = files;
+            }
+            return ContentUris.withAppendedId(base, id);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
 
     static Uri uriFor(File f) {
         return new Uri.Builder().scheme("content").authority(AUTHORITY)

@@ -23,8 +23,14 @@ Apps, Favorites and Files each show their items one of three ways, chosen with
 the view button in the header (or in the tab's settings) and kept per tab: **Details**
 (icon, name and a line of details), **List** (a small icon and the name) or
 **Grid** (a big icon over the name). Every way turns pages; the Apps grid takes
-its columns and rows from Settings. The first screen of Files (the roots under
-the storage bar) is always a detailed list.
+its columns and rows from Settings. The Settings tab's tiles have the three
+ways too.
+
+Search and sort are in the header of every tab but Note, kept per tab: Apps by
+name, install or update date; Favorites in the order added, or by name, date,
+size, type; Files by name, date, size, type (folders first); Settings' tiles in
+their own order or by name. Choosing the current order again turns it round.
+Files has ‹ in its header whenever there is a place to go back to.
 
 **Settings.** Each tab has its own, in its menu (⋮ › *Apps settings*, *Favorites
 settings*, *Files settings*, *Note settings*): the view, the grid size and

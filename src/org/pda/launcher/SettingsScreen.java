@@ -17,7 +17,6 @@ import android.os.Environment;
 import android.os.StatFs;
 import android.provider.Settings;
 import android.text.format.Formatter;
-import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -52,14 +51,15 @@ final class SettingsScreen {
     private final Runnable showHideApps;
     private final Runnable close;
     private final LinearLayout root;
-    private final TextView title, back;
-    private final ImageView viewBtn;
+    private final Header header;
+    private final ImageView viewBtn, sortBtn;
     private final LinearLayout banner;
     private final LinearLayout list;      // a group's rows
     private final Pager pager;            // the rows' pages
     private final PagedView tiles;        // the general screen's tiles
     private final Pager tilePager;
     private final List<Tile> tileList = new ArrayList<>();
+    private final List<Tile> shownTiles = new ArrayList<>();   // after the search and the order
     private int rowsPerPage = 8;
     private String scope = GENERAL;
     private boolean fromGeneral;   // a group opened from the tiles: Back returns there
@@ -98,19 +98,21 @@ final class SettingsScreen {
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        // The header: ‹ (inside a group), the title, the view button (the tiles).
-        LinearLayout titleBox = new LinearLayout(act);
-        titleBox.setGravity(Gravity.CENTER_VERTICAL);
-        back = Ui.textAction(act, "‹", v -> onBack());
-        back.setTextSize(28);
-        titleBox.addView(back);
-        title = Ui.title(act, "Settings");
-        titleBox.addView(title);
+        // The header: ‹ (inside a group), the title; on the tiles, search, sort and
+        // the view button.
+        tilePager = new Pager(act);
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("settings.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("settings.view"), m -> Config.set(act, "settings.view", m)));
-        LinearLayout header = Ui.header(act, titleBox, viewBtn);
-        header.setPadding(0, 0, Ui.dp(act, 4), 0);
-        root.addView(header);
+        sortBtn = Header.sort(act, "settings.sort", "settings.desc", "Default", "Name");
+        header = new Header(act, "Settings")
+                .back(this::onBack)
+                .search(q -> {
+                    tilePager.setPage(0);
+                    render();
+                })
+                .action(sortBtn)
+                .action(viewBtn);
+        root.addView(header.view());
         root.addView(Ui.divider(act));
 
         banner = new LinearLayout(act);
@@ -119,21 +121,20 @@ final class SettingsScreen {
         banner.setOnClickListener(v -> start(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)));
         root.addView(banner);
 
-        tilePager = new Pager(act);
         tiles = new PagedView(act, tilePager);
         buildTiles();
         tiles.setBinder(new PagedView.Binder() {
-            @Override public int count() { return tileList.size(); }
-            @Override public Drawable icon(int i) { return act.getDrawable(tileList.get(i).icon); }
-            @Override public String title(int i) { return tileList.get(i).title; }
+            @Override public int count() { return shownTiles.size(); }
+            @Override public Drawable icon(int i) { return act.getDrawable(shownTiles.get(i).icon); }
+            @Override public String title(int i) { return shownTiles.get(i).title; }
             @Override public String summary(int i) {
-                Supplier<String> s = tileList.get(i).summary;
+                Supplier<String> s = shownTiles.get(i).summary;
                 return s == null ? null : s.get();
             }
             @Override public String mark(int i) { return null; }
             @Override public boolean highlight(int i) { return false; }
             @Override public boolean dim(int i) { return false; }
-            @Override public void click(int i, View v) { tileList.get(i).open.run(); }
+            @Override public void click(int i, View v) { shownTiles.get(i).open.run(); }
             @Override public boolean longClick(int i, View v) { return false; }
         });
         tiles.setGrid(4, 0);
@@ -201,6 +202,7 @@ final class SettingsScreen {
      * @return false when there is nothing to go back to (the Settings tab).
      */
     boolean onBack() {
+        if (header.searching()) { header.closeSearch(); return true; }
         if (fromGeneral) { open(GENERAL); return true; }
         if (close == null) return false;
         close.run();
@@ -208,6 +210,7 @@ final class SettingsScreen {
     }
 
     private void openGroup(String group) {
+        if (header.searching()) header.closeSearch();
         open(group);
         fromGeneral = true;
         render();
@@ -241,6 +244,17 @@ final class SettingsScreen {
         tileList.add(android(R.drawable.ic_info, "About phone", () -> "Android " + Build.VERSION.RELEASE,
                 Settings.ACTION_DEVICE_INFO_SETTINGS));
         tileList.add(android(R.drawable.ic_gear, "All settings", null, Settings.ACTION_SETTINGS));
+    }
+
+    /** The tiles whose title matches the search, in the default order or by name. */
+    private void filterTiles() {
+        shownTiles.clear();
+        String q = header.query().toLowerCase(Locale.ROOT);
+        for (Tile t : tileList) if (q.isEmpty() || t.title.toLowerCase(Locale.ROOT).contains(q)) shownTiles.add(t);
+        if (Config.get("settings.sort").equals("name")) {
+            shownTiles.sort((a, b) -> a.title.compareToIgnoreCase(b.title));
+        }
+        if (Config.getBool("settings.desc")) java.util.Collections.reverse(shownTiles);
     }
 
     private Tile android(int icon, String title, Supplier<String> summary, String action) {
@@ -334,12 +348,12 @@ final class SettingsScreen {
 
     private void render() {
         boolean general = GENERAL.equals(scope);
-        title.setText(general ? "Settings" : label(scope) + (LAUNCHER.equals(scope) ? "" : " settings"));
-        boolean showBack = close != null || fromGeneral;
-        back.setVisibility(showBack ? View.VISIBLE : View.GONE);
-        title.setPadding(showBack ? 0 : Ui.dp(act, 16), 0, 0, 0);
+        header.setTitle(general ? "Settings" : label(scope) + (LAUNCHER.equals(scope) ? "" : " settings"));
+        header.showBack(close != null || fromGeneral);
+        header.setSearchEnabled(general);
         viewBtn.setVisibility(general ? View.VISIBLE : View.GONE);
-        banner.setVisibility(general ? View.VISIBLE : View.GONE);
+        sortBtn.setVisibility(general ? View.VISIBLE : View.GONE);
+        banner.setVisibility(general && header.query().isEmpty() ? View.VISIBLE : View.GONE);
         tiles.setVisibility(general ? View.VISIBLE : View.GONE);
         tilePager.setVisibility(general ? View.VISIBLE : View.GONE);
         list.setVisibility(general ? View.GONE : View.VISIBLE);
@@ -348,6 +362,7 @@ final class SettingsScreen {
             String mode = Config.get("settings.view");
             viewBtn.setImageResource(PagedView.iconOf(mode));
             fillBanner();
+            filterTiles();
             tiles.setMode(mode);
             tiles.refresh();
             return;

@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -16,16 +17,11 @@ import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,12 +50,15 @@ final class AppsTab {
         final String name;
         final Drawable icon;
         final String version;
+        final long installed, updated;
 
-        App(String pkg, String name, Drawable icon, String version) {
+        App(String pkg, String name, Drawable icon, PackageInfo info) {
             this.pkg = pkg;
             this.name = name;
             this.icon = icon;
-            this.version = version;
+            this.version = info != null ? info.versionName : null;
+            this.installed = info != null ? info.firstInstallTime : 0;
+            this.updated = info != null ? info.lastUpdateTime : 0;
         }
     }
 
@@ -70,8 +69,7 @@ final class AppsTab {
     private final List<App> shown = new ArrayList<>();
     private final SharedPreferences prefs;
     private final LinearLayout root;
-    private final TextView title;
-    private final EditText search;
+    private final Header header;
     private final ImageView viewBtn;
     private final Pager pager;
     private final PagedView list;
@@ -100,38 +98,22 @@ final class AppsTab {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        // The header: the title, or the search box while searching.
-        LinearLayout titleBox = new LinearLayout(act);
-        title = Ui.title(act, "Apps");
-        search = new EditText(act);
-        search.setSingleLine(true);
-        search.setHint(act.getString(R.string.search_by_name));
-        search.setTextColor(Ui.TEXT);
-        search.setHintTextColor(Ui.DIM);
-        search.setBackground(null);
-        search.setPadding(0, 0, 0, 0);
-        search.setVisibility(View.GONE);
-        search.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(Editable s) {
-                query = s.toString().replace("\n", "").trim();
-                pager.setPage(0);
-                applyFilter();
-            }
-        });
-        titleBox.addView(title);
-        titleBox.addView(search, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        pager = new Pager(act);
+        // The header: search, sort, the view, the menu.
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("apps.view")), "View",
             v -> PagedView.chooseMode(act, v, Config.get("apps.view"), m -> Config.set(act, "apps.view", m)));
-        root.addView(Ui.header(act, titleBox,
-            Ui.action(act, android.R.drawable.ic_menu_search, "Search", v -> toggleSearch()),
-            viewBtn,
-            Ui.textAction(act, "⋮", v -> showMenu(v))));
+        header = new Header(act, "Apps")
+            .search(q -> {
+                query = q;
+                pager.setPage(0);
+                applyFilter();
+            })
+            .action(Header.sort(act, "apps.sort", "apps.desc", "Name", "Installed", "Updated"))
+            .action(viewBtn)
+            .action(Ui.textAction(act, "⋮", v -> showMenu(v)));
+        root.addView(header.view());
         root.addView(Ui.divider(act));
 
-        pager = new Pager(act);
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return shown.size(); }
@@ -165,8 +147,8 @@ final class AppsTab {
 
     /** Back: close the search, then go to the first page. Returns true if it did something. */
     boolean onBack() {
-        if (search.getVisibility() == View.VISIBLE) {
-            closeSearch();
+        if (header.searching()) {
+            header.closeSearch();
             return true;
         }
         if (pager.page() > 0) {
@@ -179,7 +161,7 @@ final class AppsTab {
 
     /** Home pressed on the home screen: the first page, no search. */
     void reset() {
-        closeSearch();
+        if (header.searching()) header.closeSearch();
         pager.setPage(0);
         applyFilter();
     }
@@ -187,7 +169,7 @@ final class AppsTab {
     /** The settings changed: the view and the grid's size take effect at once. */
     void onConfig() {
         applyView();
-        list.refresh();
+        applyFilter();   // the order may have changed
     }
 
     private void applyView() {
@@ -195,23 +177,6 @@ final class AppsTab {
         viewBtn.setImageResource(PagedView.iconOf(mode));
         list.setMode(mode);
         list.setGrid(Config.getInt("apps.columns"), Config.getInt("apps.rows"));
-    }
-
-    private void toggleSearch() {
-        if (search.getVisibility() == View.VISIBLE) { closeSearch(); return; }
-        title.setVisibility(View.GONE);
-        search.setVisibility(View.VISIBLE);
-        search.requestFocus();
-        InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT);
-    }
-
-    private void closeSearch() {
-        InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.hideSoftInputFromWindow(search.getWindowToken(), 0);
-        search.setText("");
-        search.setVisibility(View.GONE);
-        title.setVisibility(View.VISIBLE);
     }
 
     private void showMenu(View anchor) {
@@ -249,11 +214,10 @@ final class AppsTab {
                     icon = li.getIcon(0);
                     ICONS.put(pkg, icon);
                 }
-                found.add(new App(pkg, String.valueOf(li.getLabel()), icon, version(pm, pkg)));
+                found.add(new App(pkg, String.valueOf(li.getLabel()), icon, info(pm, pkg)));
             }
             // The launcher itself has no LAUNCHER category, so add it explicitly.
             found.add(self(pm, self));
-            Collections.sort(found, (a, b) -> a.name.compareToIgnoreCase(b.name));
             act.runOnUiThread(() -> {
                 if (gen != generation) return;
                 all.clear();
@@ -263,9 +227,9 @@ final class AppsTab {
         }).start();
     }
 
-    private static String version(PackageManager pm, String pkg) {
+    private static PackageInfo info(PackageManager pm, String pkg) {
         try {
-            return pm.getPackageInfo(pkg, 0).versionName;
+            return pm.getPackageInfo(pkg, 0);
         } catch (PackageManager.NameNotFoundException e) {
             return null;
         }
@@ -279,7 +243,7 @@ final class AppsTab {
                 ICONS.put(pkg, icon);
             }
             return new App(pkg, String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))),
-                icon, version(pm, pkg));
+                icon, info(pm, pkg));
         } catch (PackageManager.NameNotFoundException e) {
             return new App(pkg, pkg, icon, null);
         }
@@ -297,7 +261,24 @@ final class AppsTab {
             if (hidden.contains(a.pkg)) continue;
             if (q.isEmpty() || a.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(a);
         }
+        sort(shown);
         list.refresh();
+    }
+
+    /** The order of apps.sort (a tie by name), turned round by apps.desc. */
+    private static void sort(List<App> apps) {
+        java.util.Comparator<App> byName = (a, b) -> a.name.compareToIgnoreCase(b.name);
+        java.util.Comparator<App> order;
+        switch (Config.get("apps.sort")) {
+            case "installed": order = (a, b) -> Long.compare(a.installed, b.installed); break;
+            case "updated": order = (a, b) -> Long.compare(a.updated, b.updated); break;
+            default: order = byName;
+        }
+        java.util.Comparator<App> chosen = Config.getBool("apps.desc") ? order.reversed() : order;
+        Collections.sort(apps, (a, b) -> {
+            int c = chosen.compare(a, b);
+            return c != 0 ? c : byName.compare(a, b);
+        });
     }
 
     private void launch(String pkg) {

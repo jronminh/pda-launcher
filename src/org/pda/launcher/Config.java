@@ -32,6 +32,15 @@ public final class Config {
         SCHEMA.put("favorites.view", new String[] { "enum", "details", "details|list|grid" });
         SCHEMA.put("files.view", new String[] { "enum", "details", "details|list|grid" });
         SCHEMA.put("settings.view", new String[] { "enum", "grid", "details|list|grid" });
+        // The order of each tab's items, and whether it is turned round.
+        SCHEMA.put("apps.sort", new String[] { "enum", "name", "name|installed|updated" });
+        SCHEMA.put("apps.desc", new String[] { "bool", "false", "" });
+        SCHEMA.put("favorites.sort", new String[] { "enum", "added", "added|name|date|size|type" });
+        SCHEMA.put("favorites.desc", new String[] { "bool", "false", "" });
+        SCHEMA.put("files.sort", new String[] { "enum", "name", "name|date|size|type" });
+        SCHEMA.put("files.desc", new String[] { "bool", "false", "" });
+        SCHEMA.put("settings.sort", new String[] { "enum", "default", "default|name" });
+        SCHEMA.put("settings.desc", new String[] { "bool", "false", "" });
         SCHEMA.put("note.textSize", new String[] { "enum", "medium", "small|medium|large" });
     }
 
