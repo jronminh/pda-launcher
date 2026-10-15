@@ -1,8 +1,10 @@
 package org.pda.launcher;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -28,9 +30,11 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Home screen: a search box over a 4 x 6 grid of launchable apps. Nothing else. */
@@ -38,7 +42,8 @@ public class HomeActivity extends Activity {
 
     static final int COLUMNS = 4;
     static final int VISIBLE_ROWS = 6;
-    static final String PANEL_PACKAGE = "org.pda.panel";
+    static final String PREFS = "launcher";
+    static final String KEY_HIDDEN = "hidden";
 
     /** Set while the home screen is in the foreground, so the package receiver can reload it. */
     static volatile HomeActivity current;
@@ -67,11 +72,13 @@ public class HomeActivity extends Activity {
     private GridView grid;
     private TextView footer;
     private BaseAdapter adapter;
+    private SharedPreferences prefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getActionBar() != null) getActionBar().hide();
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         int pad = dp(8);
 
         LinearLayout root = new LinearLayout(this);
@@ -115,7 +122,6 @@ public class HomeActivity extends Activity {
         footer.setTextSize(12);
         footer.setPadding(0, pad, 0, pad);
         footer.setText("PDA Launcher " + versionName());
-        footer.setOnClickListener(v -> openPanel());
         root.addView(footer, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -188,10 +194,16 @@ public class HomeActivity extends Activity {
         return new App(pkg, name, icon);
     }
 
+    private Set<String> hidden() {
+        return new HashSet<>(prefs.getStringSet(KEY_HIDDEN, Collections.emptySet()));
+    }
+
     private void applyFilter() {
         shown.clear();
         String q = query.toLowerCase(Locale.ROOT);
+        Set<String> hidden = hidden();
         for (App a : all) {
+            if (hidden.contains(a.pkg)) continue;
             if (q.isEmpty() || a.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(a);
         }
         footer.setVisibility(q.isEmpty() ? View.VISIBLE : View.GONE);
@@ -207,20 +219,32 @@ public class HomeActivity extends Activity {
         }
     }
 
-    /**
-     * Hide/show apps needs Device Owner, and only the PDA panel holds that.
-     * The footer opens the panel; its "Hide apps" list is under Device Owner.
-     */
-    private void openPanel() {
-        Intent i = getPackageManager().getLaunchIntentForPackage(PANEL_PACKAGE);
-        if (i == null) {
-            android.widget.Toast.makeText(this, "PDA panel is not installed", android.widget.Toast.LENGTH_SHORT).show();
-            return;
+    /** Launcher-only filter: checked apps show in the grid, unchecked ones are hidden. */
+    private void showHideDialog() {
+        List<App> candidates = new ArrayList<>();
+        for (App a : all) {
+            if (!a.pkg.equals(getPackageName())) candidates.add(a);
         }
-        try {
-            startActivity(i);
-        } catch (ActivityNotFoundException | SecurityException ignored) {
+        Set<String> hidden = hidden();
+        String[] names = new String[candidates.size()];
+        boolean[] visible = new boolean[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            names[i] = candidates.get(i).name;
+            visible[i] = !hidden.contains(candidates.get(i).pkg);
         }
+        new AlertDialog.Builder(this)
+            .setTitle("Show/Hide apps")
+            .setMultiChoiceItems(names, visible, (d, which, checked) -> visible[which] = checked)
+            .setPositiveButton("Done", (d, w) -> {
+                Set<String> newHidden = new HashSet<>();
+                for (int i = 0; i < candidates.size(); i++) {
+                    if (!visible[i]) newHidden.add(candidates.get(i).pkg);
+                }
+                prefs.edit().putStringSet(KEY_HIDDEN, newHidden).apply();
+                applyFilter();
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private void uninstall(String pkg) {
@@ -245,47 +269,73 @@ public class HomeActivity extends Activity {
 
     /** One cell: icon above a single-line label. */
     private final class Adapter extends BaseAdapter {
-        @Override public int getCount() { return shown.size(); }
-        @Override public Object getItem(int position) { return shown.get(position); }
-        @Override public long getItemId(int position) { return shown.get(position).pkg.hashCode(); }
+        // The "Show/Hide apps" cell sits after the apps, and only when not searching.
+        @Override public int getCount() { return shown.size() + (query.isEmpty() ? 1 : 0); }
+        @Override public Object getItem(int position) { return position < shown.size() ? shown.get(position) : null; }
+        @Override public long getItemId(int position) {
+            return position < shown.size() ? shown.get(position).pkg.hashCode() : -1;
+        }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            LinearLayout cell;
-            ImageView icon;
-            TextView label;
-            if (convertView instanceof LinearLayout) {
-                cell = (LinearLayout) convertView;
-                icon = (ImageView) cell.getChildAt(0);
-                label = (TextView) cell.getChildAt(1);
-            } else {
-                cell = new LinearLayout(HomeActivity.this);
-                cell.setOrientation(LinearLayout.VERTICAL);
-                cell.setGravity(Gravity.CENTER);
-                cell.setPadding(dp(4), dp(4), dp(4), dp(4));
+            if (position >= shown.size()) return showHideCell();
+            // Cells are built fresh: reusing convertView left some labels blank.
+            LinearLayout cell = new LinearLayout(HomeActivity.this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER);
+            cell.setPadding(dp(4), dp(4), dp(4), dp(4));
 
-                icon = new ImageView(HomeActivity.this);
-                cell.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
+            ImageView icon = new ImageView(HomeActivity.this);
+            cell.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
-                label = new TextView(HomeActivity.this);
-                label.setSingleLine(true);
-                label.setEllipsize(TextUtils.TruncateAt.END);
-                label.setGravity(Gravity.CENTER);
-                label.setTextSize(12);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                lp.topMargin = dp(4);
-                cell.addView(label, lp);
-            }
+            TextView label = new TextView(HomeActivity.this);
+            label.setSingleLine(true);
+            label.setEllipsize(TextUtils.TruncateAt.END);
+            label.setGravity(Gravity.CENTER);
+            label.setTextSize(12);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(4);
+            cell.addView(label, lp);
 
             final App app = shown.get(position);
             icon.setImageDrawable(app.icon);
             label.setText(app.name);
             cell.setOnClickListener(v -> launch(app.pkg));
             cell.setOnLongClickListener(v -> { uninstall(app.pkg); return true; });
-            cell.setLayoutParams(new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                cellHeight > 0 ? cellHeight : dp(cellHeightFallbackDp)));
+            cell.setLayoutParams(cellParams());
             return cell;
         }
+    }
+
+    private AbsListView.LayoutParams cellParams() {
+        return new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+            cellHeight > 0 ? cellHeight : dp(cellHeightFallbackDp));
+    }
+
+    private View showHideCell() {
+        LinearLayout cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setGravity(Gravity.CENTER);
+        cell.setPadding(dp(4), dp(4), dp(4), dp(4));
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(android.R.drawable.ic_menu_manage);
+        cell.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        TextView label = new TextView(this);
+        label.setText("Show/Hide apps");
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setGravity(Gravity.CENTER);
+        label.setTextSize(12);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(4);
+        cell.addView(label, lp);
+
+        cell.setOnClickListener(v -> showHideDialog());
+        cell.setLayoutParams(cellParams());
+        return cell;
     }
 }
