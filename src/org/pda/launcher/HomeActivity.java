@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -26,6 +25,8 @@ public class HomeActivity extends Activity {
 
     public static final int APPS = 0, FAVORITES = 1, FILES = 2, NOTE = 3, SETTINGS = 4;
     private static final String[] NAMES = { "Apps", "Favorites", "Files", "Note", "Settings" };
+    private static final int[] ICONS = { R.drawable.ic_apps, R.drawable.ic_star, R.drawable.ic_folder,
+            R.drawable.ic_pencil, R.drawable.ic_gear };
 
     /** An intent extra: the tab to show. */
     public static final String EXTRA_TAB = "tab";
@@ -37,7 +38,7 @@ public class HomeActivity extends Activity {
     private SettingsScreen settings;      // a tab's settings, over the tabs
     private SettingsScreen settingsTab;   // the Settings tab: the general settings
     private Config.Listener onConfig;
-    private final TextView[] buttons = new TextView[NAMES.length];
+    private final LinearLayout[] buttons = new LinearLayout[NAMES.length];   // an icon over a label
     private int tab = -1;
     private boolean settingsOpen;
     private boolean stopped = true;   // no screen of ours is showing
@@ -58,7 +59,8 @@ public class HomeActivity extends Activity {
         root.addView(content, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // The tab bar: flat, the open tab in bold.
+        // The tab bar: flat, the open tab bright and its label bold; icons, labels or
+        // both (launcher.tabStyle).
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.addView(Ui.divider(this));
@@ -66,14 +68,7 @@ public class HomeActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < NAMES.length; i++) {
             final int which = i;
-            TextView b = new TextView(this);
-            b.setText(NAMES[i]);
-            b.setGravity(Gravity.CENTER);
-            b.setTextSize(14);
-            b.setSingleLine(true);
-            b.setTextColor(Ui.TEXT);
-            b.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
-            b.setOnClickListener(v -> { closeSettings(); show(which); });
+            LinearLayout b = Ui.labeledAction(this, ICONS[i], NAMES[i], v -> { closeSettings(); show(which); });
             row.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             buttons[i] = b;
         }
@@ -105,7 +100,11 @@ public class HomeActivity extends Activity {
         content.addView(settingsTab.view());
         content.addView(settings.view());
         settings.view().setVisibility(View.GONE);
-        onConfig = apps::onConfig;
+        applyTabStyle();
+        onConfig = keys -> {
+            apps.onConfig(keys);
+            if (keys.contains("launcher.tabStyle")) applyTabStyle();
+        };
         Config.addListener(onConfig);
         show(tabOf(getIntent(), APPS));
     }
@@ -155,6 +154,13 @@ public class HomeActivity extends Activity {
         super.onDestroy();
     }
 
+    /** Every touch that goes down is noted, so a menu can open where the finger was. */
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) PopMenu.touchedAt(e.getRawX(), e.getRawY());
+        return super.dispatchTouchEvent(e);
+    }
+
     @Override
     public void onBackPressed() {
         if (settingsOpen) { settings.onBack(); return; }
@@ -197,8 +203,22 @@ public class HomeActivity extends Activity {
         if (which != FAVORITES) favorites.onHide();
         for (int i = 0; i < buttons.length; i++) {
             buttons[i].setAlpha(i == which ? 1f : 0.45f);
-            buttons[i].setTypeface(null, i == which ? android.graphics.Typeface.BOLD
+            label(i).setTypeface(null, i == which ? android.graphics.Typeface.BOLD
                 : android.graphics.Typeface.NORMAL);
+        }
+    }
+
+    private TextView label(int tab) {
+        return (TextView) buttons[tab].getChildAt(1);
+    }
+
+    /** Icons, labels or both on the tab bar; a label alone is larger. */
+    private void applyTabStyle() {
+        String style = Config.get("launcher.tabStyle");
+        for (int i = 0; i < buttons.length; i++) {
+            buttons[i].getChildAt(0).setVisibility(style.equals("labels") ? View.GONE : View.VISIBLE);
+            label(i).setVisibility(style.equals("icons") ? View.GONE : View.VISIBLE);
+            label(i).setTextSize(style.equals("labels") ? 14 : 11);
         }
     }
 

@@ -18,8 +18,10 @@ import java.util.List;
  * The app's own pop-up menu, in place of the platform's PopupMenu (which takes
  * the system's look: grey, rounded, a shadow). Black with a thin outline, white
  * text, no animation, no shadow; a checked item has a check mark, a disabled
- * one is dim. It opens under (or over) its anchor, on the side of the screen
- * the anchor is on, so it never runs off the edge. The calls follow PopupMenu's
+ * one is dim. It opens where the finger was: at the point of a long press on
+ * a row or a cell, under a header button for a tap on one; below that point
+ * when there is room, else above, and always inside the window's visible
+ * frame (clear of the status and navigation bars) with a small margin. The calls follow PopupMenu's
  * ({@code getMenu().add(...)}, {@code setOnMenuItemClickListener}, {@code show}),
  * so a call site only changes its type.
  */
@@ -59,6 +61,17 @@ public final class PopMenu {
     /** What a pick does; the result is ignored (PopupMenu's has one). */
     public interface OnPick {
         boolean onMenuItemClick(Item item);
+    }
+
+    // Where the last touch went down, on screen (the launcher's activity reports it).
+    private static float touchX = -1, touchY = -1;
+    private static long touchAt;
+
+    /** Called for every touch that goes down in the launcher's window. */
+    public static void touchedAt(float rawX, float rawY) {
+        touchX = rawX;
+        touchY = rawY;
+        touchAt = android.os.SystemClock.uptimeMillis();
     }
 
     private final Context c;
@@ -112,12 +125,39 @@ public final class PopMenu {
         w.setOutsideTouchable(true);
         w.setAnimationStyle(0);
         w.setElevation(0);
-        // Open on the side of the screen the anchor is on.
-        int[] at = new int[2];
-        anchor.getLocationOnScreen(at);
-        int screen = c.getResources().getDisplayMetrics().widthPixels;
-        boolean right = at[0] + anchor.getWidth() / 2 > screen / 2;
-        w.showAsDropDown(anchor, 0, 0, right ? Gravity.END : Gravity.START);
+        w.setClippingEnabled(false);   // the position below is already inside the frame
+
+        box.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int mw = box.getMeasuredWidth(), mh = box.getMeasuredHeight();
+        android.graphics.Rect frame = new android.graphics.Rect();
+        anchor.getRootView().getWindowVisibleDisplayFrame(frame);
+        int margin = Ui.dp(c, 8);
+
+        int[] a = new int[2];
+        anchor.getLocationOnScreen(a);
+        int ax = a[0], ay = a[1], aw = anchor.getWidth(), ah = anchor.getHeight();
+        boolean recent = android.os.SystemClock.uptimeMillis() - touchAt < 3000;
+        boolean inside = recent && touchX >= ax && touchX <= ax + aw && touchY >= ay && touchY <= ay + ah;
+        boolean button = aw <= Ui.dp(c, 64) && ah <= Ui.dp(c, 64);
+
+        int x, y, flipTo;
+        if (inside && !button) {
+            // A long press on a row or a cell: open at the finger.
+            x = Math.round(touchX);
+            y = Math.round(touchY);
+            if (x + mw > frame.right - margin) x -= mw;   // the right half opens to the left
+            flipTo = y - mh;
+        } else {
+            // A header button: under it, its edge on the side of the screen it is on.
+            boolean right = ax + aw / 2 > (frame.left + frame.right) / 2;
+            x = right ? ax + aw - mw : ax;
+            y = ay + ah;
+            flipTo = ay - mh;
+        }
+        if (y + mh > frame.bottom - margin) y = flipTo;   // no room below: above
+        x = Math.max(frame.left + margin, Math.min(x, frame.right - margin - mw));
+        y = Math.max(frame.top + margin, Math.min(y, frame.bottom - margin - mh));
+        w.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y);
     }
 
     private View row(final Item it, final PopupWindow w) {

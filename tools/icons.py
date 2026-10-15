@@ -45,6 +45,13 @@ ICONS = {
     "forward":  "M9,5l7,7l-7,7",
     "close":    "M6,6l12,12 M18,6l-12,12",
     "check":    "M5,12.5l4.5,4.5l9.5,-10",
+    # The selection's actions in Files
+    "copy":     "M8,8h12v12h-12z M16,8v-4h-12v12h4",
+    "move":     "M3,6h6l2,2h10v11h-18z M8,13.5h8 M13,10.5l3,3l-3,3",
+    "delete":   "M4,7h16 M9,7v-3h6v3 M6,7l1,14h10l1,-14 M10,11v6 M14,11v6",
+    "share":    circle(18, 5, 2.5) + " " + circle(6, 12, 2.5) + " " + circle(18, 19, 2.5)
+                + " M8.2,10.8l7.6,-4.6 M8.2,13.2l7.6,4.6",
+    "paste":    "M8,4h-3v17h14v-17h-3 M8,3h8v3h-8z",
     "lock":     "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 8,0v4",
     "lock_open": "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 7.7,-1.5",
     # Views

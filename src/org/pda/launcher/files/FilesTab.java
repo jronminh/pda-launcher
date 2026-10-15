@@ -112,7 +112,7 @@ public final class FilesTab {
     private final ImageView viewBtn;
     private final LinearLayout opsBar, pasteBar;
     private final TextView pasteText, status;
-    private final Button pasteBtn;
+    private final View pasteBtn;
     private final Pager pager;
 
     private final List<Place> history = new ArrayList<>();
@@ -225,11 +225,11 @@ public final class FilesTab {
         // The selection's actions.
         opsBar = new LinearLayout(act);
         opsBar.setOrientation(LinearLayout.HORIZONTAL);
-        opsBar.addView(barButton("Copy", v -> toClip(false)));
-        opsBar.addView(barButton("Move", v -> toClip(true)));
-        opsBar.addView(barButton("Delete", v -> confirmDelete()));
-        opsBar.addView(barButton("Share", v -> share()));
-        opsBar.addView(barButton("⋮", v -> showSelectionMenu(v)));
+        opsBar.addView(op(R.drawable.ic_copy, "Copy", v -> toClip(false)));
+        opsBar.addView(op(R.drawable.ic_move, "Move", v -> toClip(true)));
+        opsBar.addView(op(R.drawable.ic_delete, "Delete", v -> confirmDelete()));
+        opsBar.addView(op(R.drawable.ic_share, "Share", v -> share()));
+        opsBar.addView(op(R.drawable.ic_more, "More", v -> showSelectionMenu(v)));
         root.addView(withLine(opsBar));
 
         // What waits to be pasted.
@@ -241,9 +241,9 @@ public final class FilesTab {
         pasteText.setTextColor(Ui.TEXT);
         pasteText.setTextSize(14);
         pasteBar.addView(pasteText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        pasteBtn = barButton("Paste here", v -> paste());
+        pasteBtn = Ui.labeledAction(act, R.drawable.ic_paste, "Paste here", v -> paste());
         pasteBar.addView(pasteBtn, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                Ui.dp(act, 80), ViewGroup.LayoutParams.WRAP_CONTENT));
         pasteBar.addView(Ui.action(act, R.drawable.ic_close, "Drop", v -> { clip = null; render(); }));
         root.addView(withLine(pasteBar));
 
@@ -616,6 +616,13 @@ public final class FilesTab {
         p.addView(ask, lp);
         p.addView(settings, new LinearLayout.LayoutParams(lp));
         return p;
+    }
+
+    /** One of the selection's actions: an icon over a small label, a fifth of the bar. */
+    private View op(int icon, String label, View.OnClickListener click) {
+        View b = Ui.labeledAction(act, icon, label, click);
+        b.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        return b;
     }
 
     private Button barButton(String text, View.OnClickListener click) {

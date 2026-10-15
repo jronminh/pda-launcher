@@ -48,6 +48,37 @@ public final class Ui {
         return i;
     }
 
+    /**
+     * A bar button: a line icon over a small label (the tab bar, the selection's
+     * actions). Its first child is the icon, its second the label, so a caller
+     * can show either or both.
+     */
+    public static LinearLayout labeledAction(Context c, int icon, String label, View.OnClickListener click) {
+        LinearLayout b = new LinearLayout(c);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(android.view.Gravity.CENTER);
+        int p = dp(c, 6);
+        b.setPadding(0, p, 0, p);
+        b.setMinimumHeight(dp(c, 52));
+        ImageView i = new ImageView(c);
+        i.setImageResource(icon);
+        i.setColorFilter(TEXT);
+        b.addView(i, new LinearLayout.LayoutParams(dp(c, 24), dp(c, 24)));
+        TextView t = new TextView(c);
+        t.setText(label);
+        t.setTextColor(TEXT);
+        t.setTextSize(11);
+        t.setSingleLine(true);
+        t.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(c, 3);
+        b.addView(t, lp);
+        b.setContentDescription(label);
+        b.setOnClickListener(click);
+        return b;
+    }
+
     /** The height of a list row; lists turn pages of whole rows. */
     public static final int ROW_DP = 64;
 

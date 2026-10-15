@@ -46,6 +46,10 @@ Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
 Location, Security, Accounts, Date & time, Language, Developer, About phone and
 All settings open Android's own screens, nothing hidden.
 
+The tab bar shows icons, labels or both (Settings › Launcher › Tab bar). In Files,
+a selection's actions (Copy, Move, Delete, Share, more) are icons over small
+labels, and so is *Paste here*.
+
 Back returns to Apps; Home on the home screen opens the tab chosen in Settings
 (Apps by default, on its first page), Home from another app comes back to the
 tab that was open. The look is pure black for an OLED screen, flat, with no

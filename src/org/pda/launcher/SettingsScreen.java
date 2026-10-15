@@ -314,6 +314,7 @@ final class SettingsScreen {
         switch (scope) {
             case LAUNCHER:
                 e.add(choice("launcher.homeTab", "Home button opens"));
+                e.add(choice("launcher.tabStyle", "Tab bar", "both:Icons and labels", "icons:Icons", "labels:Labels"));
                 e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
                         new Intent(Settings.ACTION_HOME_SETTINGS)));
                 e.add(link("App info", "PDA Launcher " + HomeActivity.versionName(act), appDetails()));

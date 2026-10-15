@@ -289,7 +289,7 @@ final class AppsTab {
     private void appMenu(View anchor, App app) {
         PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "App info");
-        if (!app.pkg.equals(act.getPackageName())) pm.getMenu().add(0, 2, 1, "Hide");
+        pm.getMenu().add(0, 2, 1, "Hide");
         pm.getMenu().add(0, 3, 2, "Uninstall");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
@@ -318,10 +318,8 @@ final class AppsTab {
 
     /** Launcher-only filter: checked apps show in the grid, unchecked ones are hidden. */
     void showHideDialog() {
-        List<App> candidates = new ArrayList<>();
-        for (App a : all) {
-            if (!a.pkg.equals(act.getPackageName())) candidates.add(a);
-        }
+        // The launcher itself can be hidden too: it is reached with Home anyway.
+        List<App> candidates = new ArrayList<>(all);
         Set<String> hidden = hidden();
         String[] names = new String[candidates.size()];
         boolean[] visible = new boolean[candidates.size()];
