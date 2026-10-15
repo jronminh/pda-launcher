@@ -65,6 +65,12 @@ killed (an update, low memory, a reboot), not only while it lives:
   in Applications and Briefcase the page, in Prefs the group;
 - the words typed and not yet sent (Today's entry lines, a search box).
 
+A tab's button is the way back to its start, whatever was remembered: going
+to a tab opens it as it was left; tapping the button of the tab already open
+takes it to its start at once (Applications: page 1, no search; Briefcase:
+page 1; Files: the first screen, the history cleared; Today: the Today part;
+Prefs: the tiles), with no other state lost.
+
 Kept in a small state file (or SharedPreferences) written when the launcher
 leaves the screen (onStop), read in onCreate. A setting "Start where I left
 off" (on by default); off, a start opens the Home tab as now. Home pressed on
