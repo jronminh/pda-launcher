@@ -259,7 +259,7 @@ public final class PagedView extends LinearLayout {
 
     /** A menu to choose the mode; {@code onPick} gets details, list or grid. */
     public static void chooseMode(Context c, View anchor, String current, java.util.function.Consumer<String> onPick) {
-        android.widget.PopupMenu pm = new android.widget.PopupMenu(c, anchor);
+        PopMenu pm = new PopMenu(c, anchor);
         String[] modes = { DETAILS, LIST, GRID };
         String[] names = { "Details", "List", "Grid" };
         for (int i = 0; i < modes.length; i++) {

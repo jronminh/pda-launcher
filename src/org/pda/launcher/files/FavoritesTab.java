@@ -3,19 +3,18 @@ package org.pda.launcher.files;
 import android.app.Activity;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
-import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import org.pda.launcher.Config;
 import org.pda.launcher.Header;
 import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
+import org.pda.launcher.PopMenu;
 import org.pda.launcher.Ui;
 
 import java.io.File;
@@ -182,8 +181,8 @@ public final class FavoritesTab {
         // Moving means something only in the order the items were added.
         boolean movable = Config.get("favorites.sort").equals("added") && header.query().isEmpty();
         boolean desc = Config.getBool("favorites.desc");
-        PopupMenu pm = new PopupMenu(act, anchor);
-        Menu m = pm.getMenu();
+        PopMenu pm = new PopMenu(act, anchor);
+        PopMenu m = pm.getMenu();
         if (movable && at > 0) m.add(0, desc ? DOWN : UP, 0, desc ? "Move down" : "Move up");
         if (movable && at < favs.size() - 1) m.add(0, desc ? UP : DOWN, 1, desc ? "Move up" : "Move down");
         if (f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
@@ -210,7 +209,7 @@ public final class FavoritesTab {
     }
 
     private void showMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(act, anchor);
+        PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Remove missing items");
         pm.getMenu().add(0, 2, 1, "Favorites settings");
         pm.setOnMenuItemClickListener(item -> {

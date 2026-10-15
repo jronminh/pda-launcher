@@ -21,7 +21,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -179,7 +178,7 @@ final class AppsTab {
     }
 
     private void showMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(act, anchor);
+        PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Show/Hide apps");
         pm.getMenu().add(0, 2, 1, "Apps settings");
         pm.setOnMenuItemClickListener(item -> {
@@ -288,7 +287,7 @@ final class AppsTab {
 
     /** Long-press on an app. */
     private void appMenu(View anchor, App app) {
-        PopupMenu pm = new PopupMenu(act, anchor);
+        PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "App info");
         if (!app.pkg.equals(act.getPackageName())) pm.getMenu().add(0, 2, 1, "Hide");
         pm.getMenu().add(0, 3, 2, "Uninstall");

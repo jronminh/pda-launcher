@@ -11,7 +11,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import java.util.function.Consumer;
@@ -167,7 +166,7 @@ public final class Header {
             String[] values = Config.schema(key)[2].split("\\|");
             String cur = Config.get(key);
             boolean desc = Config.getBool(descKey);
-            PopupMenu pm = new PopupMenu(c, v);
+            PopMenu pm = new PopMenu(c, v);
             for (int i = 0; i < values.length; i++) {
                 String arrow = values[i].equals(cur) ? (desc ? "  ↓" : "  ↑") : "";
                 pm.getMenu().add(0, i, i, (i < labels.length ? labels[i] : values[i]) + arrow);

@@ -17,7 +17,6 @@ import android.provider.Settings;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
 import android.view.Gravity;
-import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -27,13 +26,13 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.pda.launcher.Header;
 import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
+import org.pda.launcher.PopMenu;
 import org.pda.launcher.R;
 import org.pda.launcher.Ui;
 import org.pda.launcher.Config;
@@ -810,8 +809,8 @@ public final class FilesTab {
     private void showMenu(View anchor) {
         final int NEW_FOLDER = 1, HIDDEN = 2, HOME = 4, SETTINGS = 5;
         Place p = place();
-        PopupMenu pm = new PopupMenu(act, anchor);
-        Menu m = pm.getMenu();
+        PopMenu pm = new PopMenu(act, anchor);
+        PopMenu m = pm.getMenu();
         if (p.mode == Mode.FOLDER) {
             m.add(0, NEW_FOLDER, 0, "New folder");
         }
@@ -839,8 +838,8 @@ public final class FilesTab {
     private void showSelectionMenu(View anchor) {
         final List<File> sel = new ArrayList<>(selected);
         final File one = sel.size() == 1 ? sel.get(0) : null;
-        PopupMenu pm = new PopupMenu(act, anchor);
-        Menu m = pm.getMenu();
+        PopMenu pm = new PopMenu(act, anchor);
+        PopMenu m = pm.getMenu();
         if (one != null) m.add(0, 1, 0, "Rename");
         m.add(0, 2, 1, "Select all");
         if (one != null && place().mode != Mode.FOLDER) m.add(0, 4, 3, "Show in folder");

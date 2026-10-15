@@ -13,7 +13,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.Toast;
 
 /**
@@ -142,7 +141,7 @@ final class NoteTab {
     }
 
     private void showMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(act, anchor);
+        PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Clear").setEnabled(!locked && board.length() > 0);
         pm.getMenu().add(0, 2, 1, "Note settings");
         pm.setOnMenuItemClickListener(item -> {
