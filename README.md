@@ -5,8 +5,10 @@ Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.
 A home screen with five tabs on a bar at the bottom (no swiping):
 
 - **Apps**: a grid of launchable apps (4 x 6 by default), one page at a time
-  (`‹ 1/3 ›` or a horizontal swipe), with search in the header. No widgets, no
-  wallpaper. Tap to open; long-press for App info, Hide, Uninstall. The grid
+  (`‹ 1/3 ›` or a horizontal swipe), with search in the header, under a glance
+  line (the time; the date, the next alarm, the battery). No widgets, no
+  wallpaper. Tap to open; long-press for the app's own shortcuts (as the
+  default home may read them), then App info, Hide, Uninstall. The grid
   follows installs, removals and suspended apps (`LauncherApps.Callback`). The
   header menu (⋮) has Show/Hide apps and the grid's size.
 - **Favorites**: favourite files and folders, in the order they were added. Tap a
@@ -19,7 +21,8 @@ A home screen with five tabs on a bar at the bottom (no swiping):
   saved: it lasts as long as the launcher's process (a screen made again, for
   DeX or a new font size, keeps it). It takes text only while
   the text fits the board. *Lock* makes it display only (no cursor, no
-  keyboard); ⋮ › Clear empties it.
+  keyboard); ⋮ › Clear empties it. Other apps' Share menus have *Show on Note*,
+  which puts the shared text on the board.
 
 Apps, Favorites and Files each show their items one of three ways, chosen with
 the view button in the header and kept per tab: **Details**

@@ -228,7 +228,9 @@ public final class PagedView extends LinearLayout {
         ImageView icon = new ImageView(c);
         icon.setImageDrawable(binder.icon(i));
         binder.thumb(i, icon);
-        int s = Ui.dp(c, 48);
+        // 48 dp, smaller in a short cell (many rows): the two lines of title keep their room.
+        int room = rowHeight() - 2 * p - Ui.dp(c, 4) - Ui.dp(c, 34);
+        int s = Math.max(Ui.dp(c, 24), Math.min(Ui.dp(c, 48), room));
         cell.addView(icon, new LayoutParams(s, s));
 
         String mark = binder.mark(i);

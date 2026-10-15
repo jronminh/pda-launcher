@@ -40,6 +40,7 @@ public class HomeActivity extends Activity {
     private final LinearLayout[] buttons = new LinearLayout[NAMES.length];   // an icon over a label
     private int tab = -1;
     private boolean stopped = true;   // no screen of ours is showing
+    private boolean resumedOnce;
     private boolean appsRead;         // the apps are read once; LauncherApps tells changes after
     private View cover;               // black over the tabs while the system brings the launcher back
     private final Runnable uncoverLate = this::uncover;
@@ -156,11 +157,13 @@ public class HomeActivity extends Activity {
     protected void onStart() {
         super.onStart();
         stopped = false;
+        apps.onStart();
     }
 
     @Override
     protected void onStop() {
         stopped = true;
+        apps.onStop();
         super.onStop();
     }
 
@@ -174,9 +177,11 @@ public class HomeActivity extends Activity {
             appsRead = true;
             apps.reload();
         }
-        if (tab == FILES) files.onResume();
+        // Files reads its place when shown; at the first resume it was just shown.
+        if (tab == FILES && resumedOnce) files.onResume();
         else if (tab == FAVORITES) favorites.onShow();
         else if (tab == SETTINGS) settingsTab.onShow();   // Android's state may have changed
+        resumedOnce = true;
     }
 
     @Override

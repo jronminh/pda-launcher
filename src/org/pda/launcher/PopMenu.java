@@ -32,6 +32,7 @@ public final class PopMenu {
         final int id, order;
         final String title;
         boolean enabled = true, checked;
+        android.graphics.drawable.Drawable icon;   // shown as it is (an app's shortcut icon)
 
         Item(int id, int order, String title) {
             this.id = id;
@@ -54,6 +55,11 @@ public final class PopMenu {
 
         public Item setChecked(boolean on) {
             checked = on;
+            return this;
+        }
+
+        public Item setIcon(android.graphics.drawable.Drawable d) {
+            icon = d;
             return this;
         }
     }
@@ -199,6 +205,14 @@ public final class PopMenu {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setMinimumHeight(Ui.dp(c, 48));
         r.setPadding(Ui.dp(c, 16), 0, Ui.dp(c, 12), 0);
+
+        if (it.icon != null) {
+            ImageView i = new ImageView(c);
+            i.setImageDrawable(it.icon);
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(Ui.dp(c, 24), Ui.dp(c, 24));
+            ip.rightMargin = Ui.dp(c, 12);
+            r.addView(i, ip);
+        }
 
         TextView t = new TextView(c);
         t.setText(it.title);

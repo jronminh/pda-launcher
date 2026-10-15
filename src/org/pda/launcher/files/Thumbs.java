@@ -60,20 +60,22 @@ final class Thumbs {
         v.setTag(key);
         Drawable d = CACHE.get(key);
         if (d == NONE) return;
-        if (d != null) { show(v, d); return; }
+        final boolean crop = !FileShare.mimeOf(f).equals("application/vnd.android.package-archive");
+        if (d != null) { show(v, d, crop); return; }
         if (!worth(f)) return;
         final Context app = c.getApplicationContext();
         WORKERS.execute(() -> {
             if (!key.equals(v.getTag())) return;   // scrolled away before its turn
             Drawable made = make(app, f);
             CACHE.put(key, made != null ? made : NONE);
-            if (made != null) MAIN.post(() -> { if (key.equals(v.getTag())) show(v, made); });
+            if (made != null) MAIN.post(() -> { if (key.equals(v.getTag())) show(v, made, crop); });
         });
     }
 
-    private static void show(ImageView v, Drawable d) {
+    /** A picture fills its square (cropped); an app's icon is shown whole. */
+    private static void show(ImageView v, Drawable d, boolean crop) {
         v.clearColorFilter();
-        v.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        v.setScaleType(crop ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
         v.setImageDrawable(d);
     }
 

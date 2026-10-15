@@ -39,6 +39,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Share › Show on Note: text from another app onto the Note tab's board. -->
+        <activity
+            android:name=".ShareToNote"
+            android:label="Show on Note"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name=".files.FileShare"
             android:authorities="org.pda.launcher.files"

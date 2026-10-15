@@ -29,6 +29,7 @@ final class NoteTab {
     // The board's text and lock outlive the screen, not the process.
     private static CharSequence kept = "";
     private static boolean keptLocked;
+    private static NoteTab live;   // the board on screen now, if any
 
     private final Activity act;
     private final LinearLayout root;
@@ -77,6 +78,22 @@ final class NoteTab {
         Config.addListener(onConfig);
         applySize();
         if (keptLocked) setLocked(true, false);
+        live = this;
+    }
+
+    /**
+     * Put {@code text} on the board in place of what is there (Share › Show on
+     * Note). It is shown whole even if it does not fit: the fit check is for
+     * typing; what runs past the board is simply not seen.
+     */
+    static void show(String text) {
+        kept = text;
+        NoteTab n = live;
+        if (n == null) return;   // the next board made starts with it
+        InputFilter[] filters = n.board.getFilters();
+        n.board.setFilters(new InputFilter[0]);
+        n.board.setText(text);
+        n.board.setFilters(filters);
     }
 
     View view() {
@@ -88,6 +105,7 @@ final class NoteTab {
     }
 
     void onDestroy() {
+        if (live == this) live = null;
         Config.removeListener(onConfig);
     }
 

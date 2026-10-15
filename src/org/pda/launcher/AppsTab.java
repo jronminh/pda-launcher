@@ -5,11 +5,13 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Handler;
@@ -21,6 +23,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,6 +74,22 @@ final class AppsTab {
     private final ImageView viewBtn;
     private final Pager pager;
     private final PagedView list;
+    private final LinearLayout glance;      // time, date, next alarm, battery
+    private final TextView glanceTime, glanceInfo;
+    private int battery = -1;
+    private boolean charging;
+    private final android.content.BroadcastReceiver ticker = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            if (Intent.ACTION_BATTERY_CHANGED.equals(i.getAction())) {
+                int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+                battery = level < 0 ? -1 : Math.round(level * 100f / scale);
+                int st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+                charging = st == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
+            }
+            updateGlance();
+        }
+    };
     private int generation;   // the newest reload; an older one that finishes late is dropped
 
     /** The system tells a launcher about package changes, suspended apps included. */
@@ -108,6 +127,23 @@ final class AppsTab {
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
+        // The glance line: the time, and the date, the next alarm and the battery.
+        glance = new LinearLayout(act);
+        glance.setOrientation(LinearLayout.HORIZONTAL);
+        glance.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        glance.setPadding(Ui.dp(act, 16), Ui.dp(act, 8), Ui.dp(act, 16), Ui.dp(act, 8));
+        glanceTime = new TextView(act);
+        glanceTime.setTextColor(Ui.TEXT);
+        glanceTime.setTextSize(30);
+        glance.addView(glanceTime);
+        glanceInfo = new TextView(act);
+        glanceInfo.setTextColor(Ui.DIM);
+        glanceInfo.setTextSize(13);
+        glanceInfo.setGravity(android.view.Gravity.END);
+        glance.addView(glanceInfo, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        glance.setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
+        root.addView(glance);
+
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return shown.size(); }
@@ -139,6 +175,47 @@ final class AppsTab {
         launcherApps.unregisterCallback(onPackages);
     }
 
+    /** On screen: the glance line follows the minute, the battery and the alarms. */
+    void onStart() {
+        IntentFilter f = new IntentFilter();
+        f.addAction(Intent.ACTION_TIME_TICK);
+        f.addAction(Intent.ACTION_TIME_CHANGED);
+        f.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        f.addAction(Intent.ACTION_BATTERY_CHANGED);   // sticky: the current level comes at once
+        f.addAction(android.app.AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED);
+        act.registerReceiver(ticker, f);
+        updateGlance();
+    }
+
+    void onStop() {
+        try { act.unregisterReceiver(ticker); } catch (IllegalArgumentException ignore) {}
+    }
+
+    private void updateGlance() {
+        long now = System.currentTimeMillis();
+        glanceTime.setText(android.text.format.DateFormat.getTimeFormat(act).format(new java.util.Date(now)));
+        StringBuilder sb = new StringBuilder(android.text.format.DateUtils.formatDateTime(act, now,
+                android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY | android.text.format.DateUtils.FORMAT_SHOW_DATE
+                        | android.text.format.DateUtils.FORMAT_NO_YEAR | android.text.format.DateUtils.FORMAT_ABBREV_ALL));
+        android.app.AlarmManager am = (android.app.AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
+        android.app.AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
+        StringBuilder second = new StringBuilder();
+        if (alarm != null) {
+            long t = alarm.getTriggerTime();
+            boolean soon = t - now < 24L * 3600 * 1000;   // within a day: the time is enough
+            second.append("Alarm ").append(soon
+                    ? android.text.format.DateFormat.getTimeFormat(act).format(new java.util.Date(t))
+                    : android.text.format.DateUtils.formatDateTime(act, t, android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY
+                            | android.text.format.DateUtils.FORMAT_SHOW_TIME | android.text.format.DateUtils.FORMAT_ABBREV_ALL));
+        }
+        if (battery >= 0) {
+            if (second.length() > 0) second.append("  ·  ");
+            second.append(battery).append('%').append(charging ? " charging" : "");
+        }
+        if (second.length() > 0) sb.append('\n').append(second);
+        glanceInfo.setText(sb);
+    }
+
     /** Back: close the search, then go to the first page. Returns true if it did something. */
     boolean onBack() {
         if (header.searching()) {
@@ -164,6 +241,7 @@ final class AppsTab {
     void onConfig(java.util.Set<String> keys) {
         if (!Config.touches(keys, "apps.")) return;
         applyView();
+        glance.setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
         applyFilter();   // the order may have changed
     }
 
@@ -180,10 +258,12 @@ final class AppsTab {
         // The grid's size, in the menu itself: a tab with so few settings needs no screen.
         pm.getMenu().add(0, 2, 1, "Columns: " + Config.get("apps.columns") + "  ›");
         pm.getMenu().add(0, 3, 2, "Rows: " + Config.get("apps.rows") + "  ›");
+        pm.getMenu().add(0, 4, 3, "Glance line").setChecked(Config.getBool("apps.glance"));
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: showHideDialog(); break;
                 case 2: PopMenu.choose(act, anchor, "apps.columns"); break;
+                case 4: Config.set(act, "apps.glance", String.valueOf(!Config.getBool("apps.glance"))); break;
                 default: PopMenu.choose(act, anchor, "apps.rows");
             }
             return true;
@@ -286,12 +366,34 @@ final class AppsTab {
     }
 
     /** Long-press on an app. */
+    private static final int MAX_SHORTCUTS = 5;
+
+    /** Long-press on an app: its shortcuts first (as the default home may read them), then ours. */
     private void appMenu(View anchor, App app) {
         PopMenu pm = new PopMenu(act, anchor);
-        pm.getMenu().add(0, 1, 0, "App info");
-        pm.getMenu().add(0, 2, 1, "Hide");
-        pm.getMenu().add(0, 3, 2, "Uninstall");
+        final List<ShortcutInfo> shortcuts = shortcuts(app.pkg);
+        for (int i = 0; i < shortcuts.size(); i++) {
+            ShortcutInfo si = shortcuts.get(i);
+            CharSequence label = si.getShortLabel() != null ? si.getShortLabel() : si.getLongLabel();
+            Drawable icon = null;
+            try {
+                icon = launcherApps.getShortcutIconDrawable(si, act.getResources().getDisplayMetrics().densityDpi);
+            } catch (RuntimeException ignore) {}
+            pm.getMenu().add(0, 100 + i, i, String.valueOf(label)).setIcon(icon);
+        }
+        pm.getMenu().add(0, 1, 100, "App info");
+        pm.getMenu().add(0, 2, 101, "Hide");
+        pm.getMenu().add(0, 3, 102, "Uninstall");
         pm.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() >= 100) {
+                ShortcutInfo si = shortcuts.get(item.getItemId() - 100);
+                try {
+                    launcherApps.startShortcut(si, null, null);
+                } catch (RuntimeException e) {   // gone, disabled, or the app refuses
+                    android.widget.Toast.makeText(act, "Could not open the shortcut", android.widget.Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            }
             switch (item.getItemId()) {
                 case 1: start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.parse("package:" + app.pkg))); break;
@@ -307,6 +409,39 @@ final class AppsTab {
             return true;
         });
         pm.show();
+    }
+
+    /**
+     * An app's shortcuts (its manifest's first, then the ones it adds at run
+     * time, then the pinned ones), at most MAX_SHORTCUTS, in the app's own rank.
+     * Only the default home may read them; otherwise there are none.
+     */
+    private List<ShortcutInfo> shortcuts(String pkg) {
+        List<ShortcutInfo> out = new ArrayList<>();
+        try {
+            if (!launcherApps.hasShortcutHostPermission()) return out;
+            LauncherApps.ShortcutQuery q = new LauncherApps.ShortcutQuery()
+                    .setPackage(pkg)
+                    .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                            | LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC
+                            | LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED);
+            List<ShortcutInfo> found = launcherApps.getShortcuts(q, Process.myUserHandle());
+            if (found == null) return out;
+            List<ShortcutInfo> list = new ArrayList<>(found);
+            Collections.sort(list, (a, b) -> {
+                int ka = a.isDeclaredInManifest() ? 0 : a.isDynamic() ? 1 : 2;
+                int kb = b.isDeclaredInManifest() ? 0 : b.isDynamic() ? 1 : 2;
+                return ka != kb ? Integer.compare(ka, kb) : Integer.compare(a.getRank(), b.getRank());
+            });
+            for (ShortcutInfo si : list) {
+                if (!si.isEnabled()) continue;
+                out.add(si);
+                if (out.size() == MAX_SHORTCUTS) break;
+            }
+        } catch (RuntimeException e) {
+            // no permission (not the default home) or the user is locked: none
+        }
+        return out;
     }
 
     private void start(Intent i) {
