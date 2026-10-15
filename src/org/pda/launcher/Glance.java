@@ -146,7 +146,7 @@ final class Glance {
         StringBuilder s = new StringBuilder();
         AlarmManager am = (AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
         AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
-        if (alarm != null) s.append("Alarm ").append(when(alarm.getTriggerTime(), now));
+        if (alarm != null) s.append("Alarm ").append(when(act, alarm.getTriggerTime(), now));
         if (battery >= 0) {
             if (s.length() > 0) s.append("  ·  ");
             s.append(battery).append('%');
@@ -162,7 +162,7 @@ final class Glance {
         if (Config.getBool("apps.glanceEvents") && calendarAllowed(act)) {
             final int gen = ++generation;
             new Thread(() -> {
-                String[] e = nextEvent(now);
+                String[] e = nextEvent(act, now);
                 act.runOnUiThread(() -> {
                     if (gen != generation) return;
                     eventStart = e == null ? -1 : Long.parseLong(e[1]);
@@ -176,7 +176,7 @@ final class Glance {
     }
 
     /** The next event of the visible calendars in the coming day: its line and its start. */
-    private String[] nextEvent(long now) {
+    static String[] nextEvent(Context act, long now) {
         Uri.Builder b = CalendarContract.Instances.CONTENT_URI.buildUpon();
         ContentUris.appendId(b, now);
         ContentUris.appendId(b, now + DateUtils.DAY_IN_MILLIS);
@@ -190,7 +190,7 @@ final class Glance {
                 long begin = c.getLong(1), end = c.getLong(2);
                 if (end <= now) continue;
                 String title = c.getString(0) == null || c.getString(0).isEmpty() ? "(no title)" : c.getString(0);
-                String at = c.getInt(3) == 1 ? "Today" : begin <= now ? "Now" : when(begin, now);
+                String at = c.getInt(3) == 1 ? "Today" : begin <= now ? "Now" : when(act, begin, now);
                 return new String[] { at + "  " + title, String.valueOf(begin) };
             }
         } catch (RuntimeException e) {
@@ -200,7 +200,7 @@ final class Glance {
     }
 
     /** A time within a day as the time alone, else with its weekday. */
-    private String when(long t, long now) {
+    static String when(Context act, long t, long now) {
         if (t - now < DateUtils.DAY_IN_MILLIS) return DateFormat.getTimeFormat(act).format(new Date(t));
         return DateUtils.formatDateTime(act, t, DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_SHOW_TIME
                 | DateUtils.FORMAT_ABBREV_ALL);

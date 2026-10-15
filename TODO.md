@@ -100,7 +100,9 @@ and following renames keep working.
 | Contact | + › Contact (Android's picker: no contacts permission) | Call or Message |
 | Termux command | + › Command | runs it in Termux (`com.termux.RUN_COMMAND`; needs `allow-external-apps = true` in `~/.termux/termux.properties` and the RUN_COMMAND permission granted once) |
 
-First: app shortcuts, links and Termux commands.
+Done: files, folders, links, apps and app shortcuts (pinned), as tiles with a
+More tile; + menu, Share › Add to Briefcase, Applications › Add to Briefcase.
+Left: contacts and Termux commands.
 
 ## Built-in viewers
 

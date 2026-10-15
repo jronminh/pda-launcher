@@ -1,21 +1,33 @@
 package org.pda.launcher.files;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.LauncherApps;
+import android.content.pm.ShortcutInfo;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Process;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.pda.launcher.Config;
 import org.pda.launcher.Header;
 import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
 import org.pda.launcher.PopMenu;
+import org.pda.launcher.R;
 import org.pda.launcher.Ui;
+import org.pda.launcher.files.Favorites.Item;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -24,12 +36,14 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The Briefcase tab: the files and folders kept in {@link Favorites}, one page
- * at a time, as details, a list or a grid, searched by name and sorted (the
- * order they were added, or name, date, size, type). Tap a folder to show it in
- * the Files tab, a file to open it; long-press for Move up and Move down (in
- * the order added), Show in folder and Remove. Items are added from the Files
- * tab (select, then ⋮ › Add to Briefcase).
+ * The Briefcase tab, in the look of Applications and Prefs: one page of tiles,
+ * each a thing the user keeps (a file, a folder, a link, an app, an app's
+ * shortcut) drawn with the launcher's line icon, in the user's order; when
+ * they are more than a page, the last tile, More, lists them all (paged,
+ * sorted). Tap to open (a file in its viewer, a folder in Files); long-press to
+ * rename, move, remove, and a file's Open with, Details, Show in folder. Added
+ * with + (a link, an app or its shortcut), from Files (⋮ › Add to Briefcase),
+ * from Applications (long-press › Add to Briefcase) and Share › Add to Briefcase.
  */
 public final class FavoritesTab {
 
@@ -40,20 +54,23 @@ public final class FavoritesTab {
 
     private final Activity act;
     private final Host host;
+    private final LauncherApps launcherApps;
     private final LinearLayout root;
     private final Header header;
-    private final ImageView viewBtn;
+    private final ImageView viewBtn, sortBtn;
     private final Pager pager;
     private final PagedView list;
     private final TextView empty;
-    private List<File> favs = new ArrayList<>();    // in the order added
-    private final List<File> shown = new ArrayList<>();
+    private List<Item> items = new ArrayList<>();    // in the user's order
+    private final List<Item> shown = new ArrayList<>();
+    private boolean more;   // in More (every item, sorted), not on the tiles
 
     private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "favorites.")) onConfig(); };
 
     public FavoritesTab(Activity act, Host host) {
         this.act = act;
         this.host = host;
+        launcherApps = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -62,35 +79,43 @@ public final class FavoritesTab {
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("favorites.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("favorites.view"),
                         m -> Config.set(act, "favorites.view", m)));
+        sortBtn = Header.sort(act, "favorites.sort", "favorites.desc",
+                "Order added", "Name", "Date modified", "Size", "Type");
         header = new Header(act, "")
+                .back(() -> showMore(false))
                 .search(q -> {
                     pager.setPage(0);
                     show();
                 })
-                .action(Header.sort(act, "favorites.sort", "favorites.desc",
-                        "Order added", "Name", "Date modified", "Size", "Type"))
+                .action(Ui.action(act, R.drawable.ic_add, "Add", this::addMenu))
+                .action(sortBtn)
                 .action(viewBtn)
-                .action(Ui.action(act, org.pda.launcher.R.drawable.ic_more, "More", v -> showMenu(v)));
+                .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
-            @Override public int count() { return shown.size(); }
-            @Override public Drawable icon(int i) { return act.getDrawable(FilesTab.iconOf(shown.get(i))); }
-            @Override public String title(int i) {
-                File f = shown.get(i);
-                return f.getName().isEmpty() ? f.getPath() : f.getName();
+            @Override public int count() { return onTiles() && overflow() ? list.perPage() : shown.size(); }
+            @Override public Drawable icon(int i) {
+                return act.getDrawable(isMore(i) ? R.drawable.ic_more : iconOf(shown.get(i)));
             }
-            @Override public String summary(int i) { return FilesTab.describe(act, shown.get(i), true); }
+            @Override public String title(int i) { return isMore(i) ? "More" : shown.get(i).title; }
+            @Override public String summary(int i) {
+                return isMore(i) ? items.size() + " items" : describe(shown.get(i));
+            }
             @Override public String mark(int i) { return null; }
             @Override public boolean highlight(int i) { return false; }
-            @Override public boolean dim(int i) { return !shown.get(i).exists(); }
-            @Override public void thumb(int i, ImageView icon) {
-                if (shown.get(i).exists()) Thumbs.into(act, shown.get(i), icon);
+            @Override public boolean dim(int i) { return !isMore(i) && missing(shown.get(i)); }
+            @Override public void click(int i, View v) {
+                if (isMore(i)) showMore(true);
+                else open(shown.get(i));
             }
-            @Override public void click(int i, View v) { tap(shown.get(i)); }
-            @Override public boolean longClick(int i, View v) { itemMenu(v, shown.get(i)); return true; }
+            @Override public boolean longClick(int i, View v) {
+                if (isMore(i)) return false;
+                itemMenu(v, shown.get(i));
+                return true;
+            }
         });
 
         // The empty message sits over the list when there is nothing to show.
@@ -112,26 +137,25 @@ public final class FavoritesTab {
         return root;
     }
 
-    /** On screen: read the list again (the Files tab may have changed it). */
+    /** On screen: read the list again (Files, Applications or Share may have changed it). */
     public void onShow() {
-        favs = Favorites.load(act);
+        items = Favorites.items(act);
         show();
     }
 
-    /** The tab's button tapped again: the first page, no search. */
+    /** The tab's button tapped again: the tiles, no search. */
     public void toStart() {
         if (header.searching()) header.closeSearch();
+        more = false;
         pager.setPage(0);
         show();
     }
 
-    /** Back: close the search, then go to the first page. */
+    /** Back: close the search, then from More to the tiles. */
     public boolean onBack() {
         if (header.searching()) { header.closeSearch(); return true; }
-        if (pager.page() == 0) return false;
-        pager.setPage(0);
-        list.refresh();
-        return true;
+        if (more) { showMore(false); return true; }
+        return false;
     }
 
     public void onHide() {
@@ -154,55 +178,176 @@ public final class FavoritesTab {
         list.setGrid(4, 0);
     }
 
-    /** The favourites that match the search, in the chosen order. */
+    // --- the tiles and More ----------------------------------------------------------------
+
+    /** The tiles are on screen: not in More, not searching. */
+    private boolean onTiles() {
+        return !more && header.query().isEmpty();
+    }
+
+    /** More items than a page: the last tile is More. */
+    private boolean overflow() {
+        return items.size() > list.perPage();
+    }
+
+    private boolean isMore(int i) {
+        return onTiles() && overflow() && i == list.perPage() - 1;
+    }
+
+    private void showMore(boolean on) {
+        if (header.searching()) header.closeSearch();
+        more = on;
+        list.slideNext(on ? 1 : -1);
+        pager.setPage(0);
+        show();
+    }
+
+    /** The tiles in the user's order; in More or a search, those that match, sorted as chosen. */
     private void show() {
         shown.clear();
         String q = header.query().toLowerCase(Locale.ROOT);
-        for (File f : favs) if (q.isEmpty() || f.getName().toLowerCase(Locale.ROOT).contains(q)) shown.add(f);
-        String by = Config.get("favorites.sort");
-        boolean desc = Config.getBool("favorites.desc");
-        if (by.equals("added")) {
-            if (desc) Collections.reverse(shown);
-        } else {
-            FilesTab.sort(shown, by, desc);
-        }
-        empty.setText(favs.isEmpty()
-                ? "The Briefcase is empty.\n\nIn Files, long-press a file or a folder,\nthen ⋮ › Add to Briefcase."
+        for (Item it : items) if (q.isEmpty() || it.title.toLowerCase(Locale.ROOT).contains(q)) shown.add(it);
+        if (!onTiles()) sort(shown);
+        header.setTitle(more && q.isEmpty() ? "All items" : "");
+        header.showBack(more);
+        sortBtn.setVisibility(onTiles() ? View.GONE : View.VISIBLE);
+        empty.setText(items.isEmpty()
+                ? "The Briefcase is empty.\n\nAdd with +: a link, an app or its shortcut;\n"
+                    + "or in Files, long-press a file or a folder,\nthen ⋮ › Add to Briefcase."
                 : "Nothing matches.");
         empty.setVisibility(shown.isEmpty() ? View.VISIBLE : View.GONE);
         list.refresh();
     }
 
-    private void tap(File f) {
-        if (!f.exists()) return;
-        if (f.isDirectory()) host.openFolder(f);
-        else FilesTab.open(act, f);
+    /** favorites.sort: the order added, or name, date, size, type (things not files: by name). */
+    private static void sort(List<Item> list) {
+        String by = Config.get("favorites.sort");
+        java.util.Comparator<Item> byName = (a, b) -> a.title.compareToIgnoreCase(b.title);
+        java.util.Comparator<Item> order;
+        switch (by) {
+            case "name": order = byName; break;
+            case "date": order = (a, b) -> Long.compare(modified(a), modified(b)); break;
+            case "size": order = (a, b) -> Long.compare(size(a), size(b)); break;
+            case "type": order = (a, b) -> typeOf(a).compareTo(typeOf(b)); break;
+            default: order = null;   // as added
+        }
+        if (order != null) {
+            java.util.Comparator<Item> o = order;
+            Collections.sort(list, (a, b) -> {
+                int c = o.compare(a, b);
+                return c != 0 ? c : byName.compare(a, b);
+            });
+        }
+        if (Config.getBool("favorites.desc")) Collections.reverse(list);
     }
 
-    private void itemMenu(View anchor, final File f) {
-        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4, OPEN_WITH = 5, DETAILS = 6;
-        final int at = favs.indexOf(f);
-        // Moving means something only in the order the items were added.
-        boolean movable = Config.get("favorites.sort").equals("added") && header.query().isEmpty();
-        boolean desc = Config.getBool("favorites.desc");
+    private static long modified(Item it) {
+        return it.file() != null ? it.file().lastModified() : 0;
+    }
+
+    private static long size(Item it) {
+        return it.file() != null && it.file().isFile() ? it.file().length() : 0;
+    }
+
+    private static String typeOf(Item it) {
+        if (it.file() == null) return "~" + it.kind;   // after the files
+        String n = it.file().getName();
+        int dot = n.lastIndexOf('.');
+        return it.file().isDirectory() ? "" : dot >= 0 ? n.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
+    }
+
+    // --- an item -------------------------------------------------------------------------
+
+    private static int iconOf(Item it) {
+        switch (it.kind) {
+            case Item.FILE: return FilesTab.iconOf(it.file());
+            case Item.URL: return R.drawable.ic_globe;
+            default: return R.drawable.ic_launch;
+        }
+    }
+
+    private String describe(Item it) {
+        switch (it.kind) {
+            case Item.FILE: return FilesTab.describe(act, it.file(), true);
+            case Item.URL: {
+                String host = Uri.parse(it.args[0]).getHost();
+                return host != null ? host : it.args[0];
+            }
+            case Item.APP: return "App · " + appName(it.args[0]);
+            default: return "Shortcut · " + appName(it.args[0]);
+        }
+    }
+
+    private String appName(String pkg) {
+        try {
+            return String.valueOf(act.getPackageManager().getApplicationLabel(
+                    act.getPackageManager().getApplicationInfo(pkg, 0)));
+        } catch (Exception e) {
+            return "not installed";
+        }
+    }
+
+    private boolean missing(Item it) {
+        switch (it.kind) {
+            case Item.FILE: return !it.file().exists();
+            case Item.URL: return false;
+            default: return act.getPackageManager().getLaunchIntentForPackage(it.args[0]) == null;
+        }
+    }
+
+    private void open(Item it) {
+        try {
+            switch (it.kind) {
+                case Item.FILE: {
+                    File f = it.file();
+                    if (!f.exists()) return;
+                    if (f.isDirectory()) host.openFolder(f);
+                    else FilesTab.open(act, f);
+                    break;
+                }
+                case Item.URL:
+                    act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(it.args[0])));
+                    break;
+                case Item.APP: {
+                    Intent i = act.getPackageManager().getLaunchIntentForPackage(it.args[0]);
+                    if (i != null) act.startActivity(i);
+                    break;
+                }
+                default:
+                    launcherApps.startShortcut(it.args[0], it.args[1], null, null, Process.myUserHandle());
+            }
+        } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
+            Toast.makeText(act, "Could not open " + it.title, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void itemMenu(View anchor, final Item it) {
+        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4, OPEN_WITH = 5, DETAILS = 6, RENAME = 7;
+        final File f = it.file();
+        // Moving is in the user's order: on the tiles, or in More sorted as added.
+        boolean movable = header.query().isEmpty()
+                && (onTiles() || (Config.get("favorites.sort").equals("added") && !Config.getBool("favorites.desc")));
+        final int pos = shown.indexOf(it);
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
-        if (f.isFile()) m.add(0, OPEN_WITH, -2, "Open with…");
-        if (f.exists()) m.add(0, DETAILS, -1, "Details");
-        if (movable && at > 0) m.add(0, desc ? DOWN : UP, 0, desc ? "Move down" : "Move up");
-        if (movable && at < favs.size() - 1) m.add(0, desc ? UP : DOWN, 1, desc ? "Move up" : "Move down");
-        if (f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
+        if (f != null && f.isFile()) m.add(0, OPEN_WITH, -2, "Open with…");
+        if (f != null && f.exists()) m.add(0, DETAILS, -1, "Details");
+        if (f == null) m.add(0, RENAME, -1, "Rename");
+        if (movable && pos > 0) m.add(0, UP, 0, "Move up");
+        if (movable && pos >= 0 && pos < shown.size() - 1 && !isMore(pos + 1)) m.add(0, DOWN, 1, "Move down");
+        if (f != null && f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
         m.add(0, REMOVE, 3, "Remove from Briefcase");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
-                case UP: move(at, desc ? at + 1 : at - 1); break;
-                case DOWN: move(at, desc ? at - 1 : at + 1); break;
+                case UP: swap(it, shown.get(pos - 1)); break;
+                case DOWN: swap(it, shown.get(pos + 1)); break;
                 case SHOW: host.openFolder(f.getParentFile()); break;
                 case OPEN_WITH: FileDetails.openWith(act, f); break;
                 case DETAILS: FileDetails.show(act, f, root); break;
+                case RENAME: rename(it); break;
                 case REMOVE:
-                    Favorites.remove(act, Collections.singletonList(f));
-                    onShow();
+                    items.remove(it);
+                    save();
                     break;
             }
             return true;
@@ -210,20 +355,198 @@ public final class FavoritesTab {
         pm.show();
     }
 
-    private void move(int from, int to) {
-        Collections.swap(favs, from, to);
-        Favorites.save(act, favs);
+    private void swap(Item a, Item b) {
+        Collections.swap(items, items.indexOf(a), items.indexOf(b));
+        save();
+    }
+
+    private void save() {
+        Favorites.saveItems(act, items);
+        pinShortcuts();
         show();
+    }
+
+    private void rename(Item it) {
+        final EditText name = new EditText(act);
+        name.setSingleLine(true);
+        name.setText(it.title);
+        name.selectAll();
+        new AlertDialog.Builder(act)
+                .setTitle("Rename")
+                .setView(name)
+                .setPositiveButton("OK", (d, w) -> {
+                    String t = name.getText().toString().trim();
+                    if (t.isEmpty()) return;
+                    items.set(items.indexOf(it), it.renamed(t));
+                    save();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // --- adding --------------------------------------------------------------------------
+
+    private void addMenu(View anchor) {
+        PopMenu pm = new PopMenu(act, anchor);
+        pm.getMenu().add(0, 1, 0, "Link…");
+        pm.getMenu().add(0, 2, 1, "App or its shortcut…");
+        pm.getMenu().add(0, 3, 2, "File or folder…");
+        pm.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1: addLink(); break;
+                case 2: addApp(); break;
+                default:
+                    Toast.makeText(act, "Long-press a file or a folder, then ⋮ › Add to Briefcase",
+                            Toast.LENGTH_LONG).show();
+                    host.openFolder(android.os.Environment.getExternalStorageDirectory());
+            }
+            return true;
+        });
+        pm.show();
+    }
+
+    private void addLink() {
+        LinearLayout box = new LinearLayout(act);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Ui.dp(act, 20);
+        box.setPadding(p, Ui.dp(act, 8), p, 0);
+        final EditText url = new EditText(act);
+        url.setSingleLine(true);
+        url.setHint("https://…");
+        url.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI | android.text.InputType.TYPE_CLASS_TEXT);
+        final EditText title = new EditText(act);
+        title.setSingleLine(true);
+        title.setHint("Name (optional)");
+        box.addView(url);
+        box.addView(title);
+        new AlertDialog.Builder(act)
+                .setTitle("Add a link")
+                .setView(box)
+                .setPositiveButton("Add", (d, w) -> {
+                    String u = url.getText().toString().trim();
+                    if (u.isEmpty()) return;
+                    if (!u.contains("://")) u = "https://" + u;
+                    String t = title.getText().toString().trim();
+                    if (t.isEmpty()) t = Uri.parse(u).getHost() != null ? Uri.parse(u).getHost() : u;
+                    added(Favorites.addItem(act, Item.url(t, u)), t);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** + › App or its shortcut: the app, then the app itself or one of its shortcuts. */
+    private void addApp() {
+        final List<android.content.pm.LauncherActivityInfo> apps = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (android.content.pm.LauncherActivityInfo li : launcherApps.getActivityList(null, Process.myUserHandle())) {
+            if (seen.add(li.getApplicationInfo().packageName)) apps.add(li);
+        }
+        Collections.sort(apps, (a, b) -> String.valueOf(a.getLabel()).compareToIgnoreCase(String.valueOf(b.getLabel())));
+        String[] names = new String[apps.size()];
+        for (int i = 0; i < names.length; i++) names[i] = String.valueOf(apps.get(i).getLabel());
+        new AlertDialog.Builder(act)
+                .setTitle("Add an app")
+                .setItems(names, (d, which) -> addFromApp(act, apps.get(which).getApplicationInfo().packageName,
+                        names[which], this::onShow))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Offer the app itself and its shortcuts for the Briefcase (Applications
+     * calls this too). {@code done} runs after one is added.
+     */
+    public static void addFromApp(Activity act, String pkg, String appName, Runnable done) {
+        LauncherApps la = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+        final List<ShortcutInfo> shortcuts = new ArrayList<>();
+        try {
+            if (la.hasShortcutHostPermission()) {
+                List<ShortcutInfo> found = la.getShortcuts(new LauncherApps.ShortcutQuery().setPackage(pkg)
+                        .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                                | LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC
+                                | LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED), Process.myUserHandle());
+                if (found != null) for (ShortcutInfo si : found) if (si.isEnabled()) shortcuts.add(si);
+            }
+        } catch (RuntimeException ignore) {}
+        String[] names = new String[shortcuts.size() + 1];
+        names[0] = appName + " (the app)";
+        for (int i = 0; i < shortcuts.size(); i++) {
+            ShortcutInfo si = shortcuts.get(i);
+            names[i + 1] = String.valueOf(si.getShortLabel() != null ? si.getShortLabel() : si.getLongLabel());
+        }
+        Runnable pick0 = () -> {
+            boolean ok = Favorites.addItem(act, Item.app(appName, pkg));
+            toastAdded(act, ok, appName);
+            if (done != null) done.run();
+        };
+        if (shortcuts.isEmpty()) {
+            pick0.run();
+            return;
+        }
+        new AlertDialog.Builder(act)
+                .setTitle("Add to Briefcase")
+                .setItems(names, (d, which) -> {
+                    if (which == 0) {
+                        pick0.run();
+                        return;
+                    }
+                    ShortcutInfo si = shortcuts.get(which - 1);
+                    boolean ok = Favorites.addItem(act, Item.shortcut(names[which], pkg, si.getId()));
+                    pinShortcuts(act);
+                    toastAdded(act, ok, names[which]);
+                    if (done != null) done.run();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void added(boolean ok, String what) {
+        toastAdded(act, ok, what);
+        onShow();
+    }
+
+    private static void toastAdded(Context c, boolean ok, String what) {
+        Toast.makeText(c, ok ? "Added to Briefcase: " + what : what + " is in the Briefcase already",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void pinShortcuts() {
+        pinShortcuts(act);
+    }
+
+    /**
+     * Pin the Briefcase's shortcuts with the system, so an app cannot drop them
+     * (only the default home may; otherwise they still open while the app keeps
+     * them). Pinning sets a package's whole list, so one gone is unpinned too.
+     */
+    static void pinShortcuts(Context c) {
+        LauncherApps la = (LauncherApps) c.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+        try {
+            if (!la.hasShortcutHostPermission()) return;
+            java.util.Map<String, List<String>> byPkg = new java.util.HashMap<>();
+            for (Item it : Favorites.items(c)) {
+                if (Item.SHORTCUT.equals(it.kind)) {
+                    byPkg.computeIfAbsent(it.args[0], k -> new ArrayList<>()).add(it.args[1]);
+                }
+            }
+            // Packages pinned before but with none now: unpin them too.
+            List<ShortcutInfo> pinned = la.getShortcuts(new LauncherApps.ShortcutQuery()
+                    .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED), Process.myUserHandle());
+            if (pinned != null) for (ShortcutInfo si : pinned) byPkg.putIfAbsent(si.getPackage(), new ArrayList<>());
+            for (java.util.Map.Entry<String, List<String>> e : byPkg.entrySet()) {
+                try {
+                    la.pinShortcuts(e.getKey(), e.getValue(), Process.myUserHandle());
+                } catch (RuntimeException ignore) {}
+            }
+        } catch (RuntimeException ignore) {}
     }
 
     private void showMenu(View anchor) {
         PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Remove missing items");
         pm.setOnMenuItemClickListener(item -> {
-            List<File> gone = new ArrayList<>();
-            for (File f : favs) if (!f.exists()) gone.add(f);
-            Favorites.remove(act, gone);
-            onShow();
+            items.removeIf(this::missing);
+            save();
             return true;
         });
         pm.show();

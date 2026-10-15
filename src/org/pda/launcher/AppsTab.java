@@ -144,7 +144,11 @@ final class AppsTab {
                     return visibleCount() + " apps" + (n > 0 ? " · " + n + " new" : "");
                 }
                 if (onTiles()) {
-                    App a = tileApp.get(tiles.get(i).key);
+                    Role r = tiles.get(i);
+                    String st = status.get(r.key);
+                    if (st != null) return st;
+                    App a = tileApp.get(r.key);
+                    if (r.action) return ready(r) ? (a != null ? a.name : "") : "Not on this device";
                     return a == null ? "Choose an app" : a.name;
                 }
                 App a = shown.get(i);
@@ -154,9 +158,11 @@ final class AppsTab {
                 if (isMore(i)) return newCount() > 0 ? "•" : null;
                 return !onTiles() && isNew(shown.get(i)) ? "•" : null;
             }
-            @Override public boolean highlight(int i) { return false; }
+            @Override public boolean highlight(int i) {
+                return onTiles() && !isMore(i) && tiles.get(i).key.equals("flashlight") && torchOn;
+            }
             @Override public boolean dim(int i) {
-                return onTiles() && !isMore(i) && !tileApp.containsKey(tiles.get(i).key);
+                return onTiles() && !isMore(i) && !ready(tiles.get(i));
             }
             @Override public void click(int i, View v) {
                 if (isMore(i)) showMore(true);
@@ -176,6 +182,9 @@ final class AppsTab {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         launcherApps.registerCallback(onPackages, new Handler(Looper.getMainLooper()));
+        cameras = act.getSystemService(android.hardware.camera2.CameraManager.class);
+        torchId = cameras == null ? null : findTorch(cameras);
+        if (torchId != null) cameras.registerTorchCallback(onTorch, new Handler(Looper.getMainLooper()));
     }
 
     View view() {
@@ -184,11 +193,13 @@ final class AppsTab {
 
     void onDestroy() {
         launcherApps.unregisterCallback(onPackages);
+        if (torchId != null) cameras.unregisterTorchCallback(onTorch);
     }
 
     /** On screen: the glance line follows the minute, the battery, the alarms, the calendar. */
     void onStart() {
         glance.onStart();
+        if (onTiles()) updateStatus();   // the alarm, the event, the inbox may have changed
     }
 
     void onStop() {
@@ -224,17 +235,26 @@ final class AppsTab {
 
     // --- the tiles and More ----------------------------------------------------------------
 
-    /** A tile: a need (Phone, Camera...), drawn as Prefs' tiles are, opening an app for it. */
+    /**
+     * A tile: a need (Phone, Camera...), drawn as Prefs' tiles are, opening an app
+     * for it; or an action (Flashlight, Timer...) the tile does itself.
+     */
     static final class Role {
         final String key, name;
         final int icon;
         final Intent intent;   // what the need is, to find Android's default app and the candidates
+        final boolean action;  // the tile does it (see doAction); off until turned on
 
         Role(String key, String name, int icon, Intent intent) {
+            this(key, name, icon, intent, false);
+        }
+
+        Role(String key, String name, int icon, Intent intent, boolean action) {
             this.key = key;
             this.name = name;
             this.icon = icon;
             this.intent = intent;
+            this.action = action;
         }
     }
 
@@ -265,6 +285,15 @@ final class AppsTab {
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR)));
         r.add(new Role("store", "Store", R.drawable.ic_store,
                 new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.pda.launcher"))));
+        // Actions: the tile does a thing at once (intent: the app that must exist for it, or none).
+        r.add(new Role("flashlight", "Flashlight", R.drawable.ic_flash, null, true));
+        r.add(new Role("capture", "Capture", R.drawable.ic_pen, null, true));
+        r.add(new Role("timer", "Timer", R.drawable.ic_timer,
+                new Intent(android.provider.AlarmClock.ACTION_SET_TIMER), true));
+        r.add(new Role("event", "New event", R.drawable.ic_event_add,
+                new Intent(Intent.ACTION_INSERT, android.provider.CalendarContract.Events.CONTENT_URI), true));
+        r.add(new Role("websearch", "Web search", R.drawable.ic_search,
+                new Intent(Intent.ACTION_WEB_SEARCH), true));
         return r;
     }
 
@@ -301,7 +330,9 @@ final class AppsTab {
             String key = k.startsWith("-") ? k.substring(1) : k;
             if (role(key) != null && !out.contains(k) && !out.contains("-" + key) && !out.contains(key)) out.add(k);
         }
-        for (Role r : roles) if (!out.contains(r.key) && !out.contains("-" + r.key)) out.add(r.key);
+        for (Role r : roles) {
+            if (!out.contains(r.key) && !out.contains("-" + r.key)) out.add(r.action ? "-" + r.key : r.key);
+        }
         return out;
     }
 
@@ -338,15 +369,146 @@ final class AppsTab {
             if (k.startsWith("-")) continue;
             Role r = role(k);
             tiles.add(r);
-            App a = appFor(r, byPkg);
+            App a = r.action && r.intent == null ? null : appFor(r, byPkg);
             if (a != null) tileApp.put(r.key, a);
         }
+        updateStatus();
+    }
+
+    /** A tile can do its thing: an app for it, or (an action with none needed) the device can. */
+    private boolean ready(Role r) {
+        if (!r.action || r.intent != null) {
+            if (tileApp.containsKey(r.key)) return true;
+            // An action may be answered by an app that is not a launchable one (a timer service...).
+            return r.action && act.getPackageManager().resolveActivity(r.intent, 0) != null;
+        }
+        return !r.key.equals("flashlight") || torchId != null;
     }
 
     private void openTile(Role r, View anchor) {
+        if (r.action) {
+            if (ready(r)) doAction(r, anchor);
+            else android.widget.Toast.makeText(act, r.name + ": nothing on this device can do it",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         App a = tileApp.get(r.key);
         if (a != null) launch(a.pkg);
         else chooseApp(r);
+    }
+
+    private void doAction(Role r, View anchor) {
+        switch (r.key) {
+            case "flashlight":
+                try {
+                    cameras.setTorchMode(torchId, !torchOn);
+                } catch (Exception e) {   // in use by the camera, or refused
+                    android.widget.Toast.makeText(act, "The flashlight is busy", android.widget.Toast.LENGTH_SHORT).show();
+                }
+                break;
+            case "capture":
+                start(new Intent(act, CaptureActivity.class));
+                break;
+            case "timer": {
+                final int[] minutes = { 1, 3, 5, 10, 15, 25, 30, 45, 60 };
+                PopMenu pm = new PopMenu(act, anchor);
+                for (int i = 0; i < minutes.length; i++) pm.getMenu().add(0, i, i, minutes[i] + " min");
+                pm.setOnMenuItemClickListener(item -> {
+                    start(new Intent(android.provider.AlarmClock.ACTION_SET_TIMER)
+                            .putExtra(android.provider.AlarmClock.EXTRA_LENGTH, minutes[item.getItemId()] * 60)
+                            .putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, true));
+                    android.widget.Toast.makeText(act, "Timer: " + minutes[item.getItemId()] + " min",
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    return true;
+                });
+                pm.show();
+                break;
+            }
+            case "event":
+                start(new Intent(Intent.ACTION_INSERT, android.provider.CalendarContract.Events.CONTENT_URI));
+                break;
+            default: {   // websearch
+                final android.widget.EditText q = new android.widget.EditText(act);
+                q.setSingleLine(true);
+                q.setHint("Search the web");
+                q.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+                final AlertDialog d = new AlertDialog.Builder(act)
+                        .setView(q)
+                        .setPositiveButton("Search", (dd, w) -> webSearch(q.getText().toString()))
+                        .setNegativeButton("Cancel", null)
+                        .create();
+                q.setOnEditorActionListener((v, id, e) -> {
+                    d.dismiss();
+                    webSearch(q.getText().toString());
+                    return true;
+                });
+                d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+                d.show();
+            }
+        }
+    }
+
+    private void webSearch(String query) {
+        if (query.trim().isEmpty()) return;
+        start(new Intent(Intent.ACTION_WEB_SEARCH).putExtra(android.app.SearchManager.QUERY, query.trim()));
+    }
+
+    // --- the tiles' state lines ----------------------------------------------------------
+
+    private final Map<String, String> status = new java.util.HashMap<>();   // role key -> its line
+    private int statusGen;
+    private android.hardware.camera2.CameraManager cameras;
+    private String torchId;     // the back camera with a flash, or null
+    private boolean torchOn;
+    private final android.hardware.camera2.CameraManager.TorchCallback onTorch =
+            new android.hardware.camera2.CameraManager.TorchCallback() {
+        @Override public void onTorchModeChanged(String id, boolean on) {
+            if (!id.equals(torchId)) return;
+            torchOn = on;
+            status.put("flashlight", on ? "On" : "Off");
+            if (onTiles()) list.refresh();
+        }
+    };
+
+    private static String findTorch(android.hardware.camera2.CameraManager cm) {
+        try {
+            for (String id : cm.getCameraIdList()) {
+                android.hardware.camera2.CameraCharacteristics c = cm.getCameraCharacteristics(id);
+                Boolean flash = c.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                Integer facing = c.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING);
+                if (Boolean.TRUE.equals(flash) && facing != null
+                        && facing == android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK) return id;
+            }
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    /** What some tiles say: the next alarm, the next event, the inbox, the flashlight. */
+    private void updateStatus() {
+        long now = System.currentTimeMillis();
+        android.app.AlarmManager am = (android.app.AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
+        android.app.AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
+        if (alarm != null) status.put("clock", "Alarm " + Glance.when(act, alarm.getTriggerTime(), now));
+        else status.remove("clock");
+        if (torchId != null) status.put("flashlight", torchOn ? "On" : "Off");
+        final int gen = ++statusGen;
+        final boolean events = Glance.calendarAllowed(act);
+        new Thread(() -> {
+            String[] e = events ? Glance.nextEvent(act, now) : null;
+            int inbox = -1;
+            try {
+                inbox = org.pda.launcher.today.PdaStore.inboxNotes().size();
+            } catch (RuntimeException ignore) {}
+            final int n = inbox;
+            act.runOnUiThread(() -> {
+                if (gen != statusGen) return;
+                if (e != null) status.put("calendar", e[0]);
+                else status.remove("calendar");
+                if (n > 0) status.put("capture", n + " in the inbox");
+                else if (n == 0) status.put("capture", "Inbox empty");
+                if (onTiles()) list.refresh();
+            });
+        }, "tiles-status").start();
     }
 
     /** Which app a tile opens: the apps for its need, any app, or Android's default again. */
@@ -434,7 +596,7 @@ final class AppsTab {
         final List<ShortcutInfo> shortcuts = a == null ? new ArrayList<>() : shortcuts(a.pkg);
         addShortcuts(pm, shortcuts);
         final int pos = tiles.indexOf(r);
-        pm.getMenu().add(0, 1, 100, "Opens: " + (a == null ? "nothing yet" : a.name) + "  ›");
+        if (!r.action) pm.getMenu().add(0, 1, 100, "Opens: " + (a == null ? "nothing yet" : a.name) + "  ›");
         if (pos > 0) pm.getMenu().add(0, 2, 101, "Move up");
         if (pos < tileCount() - 1) pm.getMenu().add(0, 3, 102, "Move down");
         pm.getMenu().add(0, 4, 103, "Turn off");
@@ -617,7 +779,8 @@ final class AppsTab {
         PopMenu pm = new PopMenu(act, anchor);
         final List<ShortcutInfo> shortcuts = shortcuts(app.pkg);
         addShortcuts(pm, shortcuts);
-        pm.getMenu().add(0, 4, 99, "Use for a tile  ›");
+        pm.getMenu().add(0, 4, 98, "Use for a tile  ›");
+        pm.getMenu().add(0, 8, 99, "Add to Briefcase  ›");
         pm.getMenu().add(0, 1, 100, "App info");
         pm.getMenu().add(0, 2, 101, "Hide");
         pm.getMenu().add(0, 3, 102, "Uninstall");
@@ -638,6 +801,7 @@ final class AppsTab {
                 }
                 case 3: start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); break;
                 case 4: useFor(anchor, app); break;
+                case 8: org.pda.launcher.files.FavoritesTab.addFromApp(act, app.pkg, app.name, null); break;
             }
             return true;
         });
@@ -701,7 +865,7 @@ final class AppsTab {
     /** More, long-press › Use for a tile: which tile opens this app (turned on if off). */
     private void useFor(View anchor, App app) {
         PopMenu pm = new PopMenu(act, anchor);
-        for (int i = 0; i < roles.size(); i++) pm.getMenu().add(0, i, i, roles.get(i).name);
+        for (int i = 0; i < roles.size(); i++) if (!roles.get(i).action) pm.getMenu().add(0, i, i, roles.get(i).name);
         pm.setOnMenuItemClickListener(item -> {
             setRoleApp(roles.get(item.getItemId()), app.pkg);
             android.widget.Toast.makeText(act, roles.get(item.getItemId()).name + " opens " + app.name,

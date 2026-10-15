@@ -14,7 +14,10 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   them on or off; long-press moves them. The last tile, **More**, lists every
   app with its own icon, one page at a time (`‹ 1/3 ›` or a swipe), sorted as
   you like; long-press there › Use for a tile. New apps go only to More,
-  marked • until first opened. The search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
+  marked • until first opened. Action tiles, off until turned on in ⋮ ›
+  Tiles: Flashlight (On/Off), Capture (the inbox's count), Timer (pick the
+  minutes), New event, Web search; Clock says the next alarm and Calendar the
+  next event. The search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
   turned on, the next calendar event (tap for the Calendar); the next alarm and
   the battery, with the time to full while charging (tap for the battery
   screen). No widgets, no wallpaper. Tap to open; long-press for the app's own
@@ -22,10 +25,14 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   Uninstall. The grid follows installs, removals and suspended apps
   (`LauncherApps.Callback`). The header menu (⋮) has Show/Hide apps, the grid's
   size, the glance line and its next event.
-- **Briefcase**: favourite files and folders, in the order they were added. Tap a
-  folder to show it in Files, a file to open it; long-press to reorder, show in
-  folder, or remove. Items are added from Files (select, ⋮ › Add to Briefcase),
-  and follow the files when Files moves, renames or deletes them.
+- **Briefcase**: what you carry, as tiles in the look of Applications: files,
+  folders, links, apps and apps' shortcuts, in your order (a More tile when
+  they pass a page). Tap to open (a file in its viewer, a folder in Files);
+  long-press to rename, move, remove, and for a file Open with, Details, Show
+  in folder. Add with + (a link, an app or one of its shortcuts), from Files
+  (⋮ › Add to Briefcase), Applications (More, long-press › Add to Briefcase)
+  or another app's Share › Add to Briefcase. Files follow Files' moves,
+  renames and deletes; shortcuts are pinned so their app keeps them.
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
 - **Today**: the PDA's information centre, in four parts:

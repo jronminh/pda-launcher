@@ -66,6 +66,11 @@ ICONS = {
     "clock":    circle(12, 13, 8) + " M12,9v4l2.5,2.5 M5,4l-2,2 M19,4l2,2",
     "calc":     "M6,3h12v18h-12z M8.5,6h7v3h-7z " + " ".join(dot(x, y) for x in (9, 12, 15) for y in (12.5, 15.5, 18.5)),
     "store":    "M4,8h16l-1,12h-14z M9,8v-1a3,3 0 0,1 6,0v1",
+    "flash":    "M8,3h8v4l-2,3v11h-4v-11l-2,-3z M8,7h8 M12,13v2",
+    "pen":      "M4,20h4l11,-11l-4,-4l-11,11z M13,7l4,4",
+    "timer":    "M7,3h10 M7,21h10 M8,3v3l4,6l-4,6v3 M16,3v3l-4,6l4,6v3",
+    "event_add": "M4,5h16v15h-16z M4,9h16 M8,3v4 M16,3v4 M12,12v6 M9,15h6",
+    "launch":   "M14,4h6v6 M20,4l-9,9 M18,14v6h-14v-14h6",
     # The viewers
     "play":     "M7,5l12,7l-12,7z",
     "pause":    "M7,5h3v14h-3z M14,5h3v14h-3z",
