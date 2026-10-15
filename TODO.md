@@ -21,6 +21,37 @@ and to leave Android's compatibility modes. Not a one-line change:
 - Play also wants an App Bundle (AAB): `aapt2 link --proto-format` and
   bundletool, still without Gradle.
 
+## Release: Google Play and F-Droid
+
+The app is ready in look; to ship it, beyond "Raise targetSdk" above:
+
+- **Play's paperwork.** A developer account (25 USD). A new personal account
+  must run a closed test with 12 testers for 14 days before production. A
+  privacy policy page (GitHub Pages is enough) and the Data safety form: the
+  app sends nothing anywhere, reads the calendar only on the device, and keeps
+  its files in shared storage. Permissions to explain: All files access (a
+  file manager), REQUEST_INSTALL_PACKAGES (Files opens an APK; file managers
+  qualify) or drop it, READ_CALENDAR (the glance line, Today), QUERY_ALL_PACKAGES
+  if needed after 30 (a launcher qualifies).
+- **The listing.** Screenshots of each tab (phone and tablet), a 512 px icon,
+  a feature graphic, a short and a full description; check that
+  `org.pda.launcher` is free. Play App Signing with an upload key (the
+  current key stays for the APKs built here).
+- **F-Droid first, maybe.** Open source, no fee, no Google: it fits the app.
+  Its build server needs a recipe: build.sh with a pinned android.jar and
+  build-tools, reproducible; no Gradle is fine with a custom build. Fastlane
+  metadata (descriptions, screenshots) in the repo serves both stores.
+- **Devices.** Try on a tablet, Android 8 to 16, and a device without Google
+  (an AOSP emulator image): the tiles' default apps, the viewers, the torch,
+  storage access, edge to edge, a wide screen (the tablet layout above).
+- **Words.** Move the UI's strings into res/values/strings.xml, then a
+  Vietnamese translation (values-vi); dates and sizes already follow the locale.
+- **Accessibility.** A content description on every icon-only button and tile
+  (TalkBack), touch targets of 48 dp, text that grows with the system's font
+  size without breaking the banner's one size.
+- **Before each release.** The audit of AGENTS.md, a version code and name in
+  the manifest, a changelog (fastlane/metadata/android/en-US/changelogs/).
+
 ## Next features (most useful for the effort first)
 
 Done: app shortcuts on long-press, the glance line over Apps, Share › Show on
