@@ -1,6 +1,6 @@
 # PDA Launcher
 
-Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0).
+Started in 2026 from [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0) and since rewritten; none of its code remains. Thanks for the start.
 
 A home screen with five tabs on a bar at the bottom (no swiping), named as on
 a Palm: Applications, Briefcase, Files, Today and Prefs. Their order, and which
