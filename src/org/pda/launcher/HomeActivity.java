@@ -42,6 +42,7 @@ public class HomeActivity extends Activity {
     private int tab = -1;
     private boolean settingsOpen;
     private boolean stopped = true;   // no screen of ours is showing
+    private boolean appsRead;         // the apps are read once; LauncherApps tells changes after
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,7 +136,13 @@ public class HomeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        apps.reload();
+        // Read the apps once. Coming back (from an app, from Recents) redraws
+        // nothing during the system's transition: the package callback keeps the
+        // list current, installs and removals included.
+        if (!appsRead) {
+            appsRead = true;
+            apps.reload();
+        }
         if (settingsOpen) settings.onShow();   // Android's state may have changed
         else if (tab == FILES) files.onResume();
         else if (tab == FAVORITES) favorites.onShow();

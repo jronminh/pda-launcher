@@ -29,6 +29,7 @@
             android:configChanges="uiMode|orientation|screenSize|keyboardHidden|keyboard"
             android:exported="true"
             android:launchMode="singleTask"
+            android:resumeWhilePausing="true"
             android:stateNotNeeded="true"
             android:windowSoftInputMode="stateUnspecified|adjustPan">
             <intent-filter>

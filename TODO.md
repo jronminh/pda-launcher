@@ -24,13 +24,14 @@ and to leave Android's compatibility modes. Not a one-line change:
 ## Recents
 
 With a third-party home, Recents is One UI Home's (com.sec.android.app.launcher,
-RecentsActivity), so going to and from it swaps two launchers' windows and can
-flicker. The window background is black now (it was the theme's grey); what is
-left is the system's transition.
+RecentsActivity), so going to and from it swaps two launchers' windows. Done:
+a black window background (it was the theme's grey), `resumeWhilePausing` (as
+Launcher3), and no app list reread on resume. Left, the system's: Home pressed
+in Recents closes One UI's Recents over this launcher instead of zooming into
+it, as only One UI Home can.
 
 ## From the audit
 
 - Files reads its place twice when the launcher starts on that tab.
 - APK icons in thumbnails are cropped (centre crop for every thumbnail).
 - An 8-row Apps grid can clip two-line labels.
-- The apps are read again on every resume.
