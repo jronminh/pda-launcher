@@ -14,7 +14,8 @@ import java.util.List;
 
 /**
  * The favourite files and folders, in the order they were added: absolute
- * paths, one per line, in the app's preferences. The first read takes over the
+ * paths, one per line, in the app's preferences. They follow the Files tab's
+ * moves, renames and deletes. The first read takes over the
  * list of earlier builds, the file {@code files/etc/favorites}, and deletes it.
  */
 public final class Favorites {
@@ -57,6 +58,30 @@ public final class Favorites {
         List<File> all = load(c);
         all.removeAll(items);
         save(c, all);
+    }
+
+    /** {@code from} was moved or renamed to {@code to}: favourites at it or inside
+     *  it follow. Called from the file operations' thread too. */
+    static synchronized void moved(Context c, File from, File to) {
+        String a = from.getAbsolutePath(), b = to.getAbsolutePath();
+        List<File> all = load(c);
+        boolean any = false;
+        for (int i = 0; i < all.size(); i++) {
+            String p = all.get(i).getAbsolutePath();
+            if (p.equals(a) || p.startsWith(a + "/")) {
+                all.set(i, new File(b + p.substring(a.length())));
+                any = true;
+            }
+        }
+        if (any) save(c, all);
+    }
+
+    /** {@code gone} was deleted: favourites at it or inside it go too. */
+    static synchronized void deleted(Context c, File gone) {
+        String a = gone.getAbsolutePath();
+        List<File> all = load(c);
+        boolean any = all.removeIf(f -> f.getAbsolutePath().equals(a) || f.getAbsolutePath().startsWith(a + "/"));
+        if (any) save(c, all);
     }
 
     static void save(Context c, List<File> all) {

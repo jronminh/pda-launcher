@@ -3,22 +3,34 @@ package org.pda.launcher;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The app's settings: a small schema in code (type, default, constraint) over
  * SharedPreferences. {@link #set} checks a value against the schema; a stored
- * value that is no longer valid reads as the default. A change reaches the
- * {@link Listener}s at once, on the main thread.
+ * value that is no longer valid reads as the default. Changes reach the
+ * {@link Listener}s on the main thread, gathered: the keys changed in one go (a
+ * sort and its direction, say) arrive as one call, so a tab reloads once.
  */
 public final class Config {
 
-    /** Called on the main thread after a setting changed. */
+    /** Called on the main thread after settings changed, with their keys. */
     public interface Listener {
-        void onChange();
+        void onChange(Set<String> keys);
+    }
+
+    /** Whether any of {@code keys} starts with {@code prefix} ("files.", say). */
+    public static boolean touches(Set<String> keys, String prefix) {
+        for (String k : keys) if (k.startsWith(prefix)) return true;
+        return false;
     }
 
     /** key -> type, default, constraint (a range "lo-hi" or values "a|b|c"). */
@@ -46,9 +58,19 @@ public final class Config {
 
     private static SharedPreferences prefs;
     private static final List<Listener> listeners = new ArrayList<>();
-    // Kept in a field: SharedPreferences holds its listeners weakly.
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final Set<String> pending = new HashSet<>();
+    private static final Runnable NOTIFY = () -> {
+        Set<String> keys = new HashSet<>(pending);
+        pending.clear();
+        for (Listener l : new ArrayList<>(listeners)) l.onChange(keys);
+    };
+    // Kept in a field: SharedPreferences holds its listeners weakly. It is called
+    // on the main thread; the keys are told together on the next turn of the loop.
     private static final SharedPreferences.OnSharedPreferenceChangeListener ON_CHANGE = (p, key) -> {
-        for (Listener l : new ArrayList<>(listeners)) l.onChange();
+        if (key == null) return;
+        if (pending.isEmpty()) MAIN.post(NOTIFY);
+        pending.add(key);
     };
 
     private Config() {}

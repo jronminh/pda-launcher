@@ -58,12 +58,11 @@ public final class PagedView extends LinearLayout {
 
     private final Pager pager;
     private Binder binder;
-    private View lead;            // an optional first row of page 0 (DETAILS only), e.g. a storage bar
     private String mode = DETAILS;
     private int columns = 4;
     private int gridRows;         // 0: as many rows of GRID_CELL_DP as fit
     private int perPage = 1;
-    private int width, height;
+    private int height;
     private final GestureDetector flip;
 
     public PagedView(Context c, Pager pager) {
@@ -88,19 +87,10 @@ public final class PagedView extends LinearLayout {
         mode = GRID.equals(m) || LIST.equals(m) ? m : DETAILS;
     }
 
-    public String mode() {
-        return mode;
-    }
-
     /** The grid's columns, and its rows (0: as many as fit). */
     public void setGrid(int columns, int rows) {
         this.columns = Math.max(1, columns);
         this.gridRows = Math.max(0, rows);
-    }
-
-    /** A view that takes the first row of the first page, in DETAILS; null for none. */
-    public void setLead(View v) {
-        lead = v;
     }
 
     /** The items or the mode changed: count the pages again and draw. */
@@ -112,7 +102,6 @@ public final class PagedView extends LinearLayout {
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         super.onSizeChanged(w, h, ow, oh);
-        width = w;
         height = h;
         post(this::refresh);
     }
@@ -143,27 +132,18 @@ public final class PagedView extends LinearLayout {
         return height > 0 ? Math.max(1, height / rowHeight()) : 1;
     }
 
-    private boolean hasLead() {
-        return lead != null && DETAILS.equals(mode);
-    }
-
     private void measurePage() {
         int n = binder == null ? 0 : binder.count();
         perPage = Math.max(1, rows() * (GRID.equals(mode) ? columns : 1));
-        // The lead takes a row of page 0, so that page holds one item less.
-        int slots = n + (hasLead() ? 1 : 0);
-        pager.setPages((slots + perPage - 1) / perPage);
+        pager.setPages((n + perPage - 1) / perPage);
     }
 
     private void rebuild() {
         removeAllViews();
         if (binder == null || height == 0) return;
         int n = binder.count();
-        int page = pager.page();
-        int lead = hasLead() ? 1 : 0;
-        int from = page == 0 ? 0 : page * perPage - lead;
-        int to = Math.min(n, (page + 1) * perPage - lead);
-        if (page == 0 && lead == 1) addView(this.lead, new LayoutParams(LayoutParams.MATCH_PARENT, rowHeight()));
+        int from = pager.page() * perPage;
+        int to = Math.min(n, from + perPage);
         if (GRID.equals(mode)) {
             int h = rowHeight();
             for (int r = from; r < to; r += columns) {
@@ -189,13 +169,16 @@ public final class PagedView extends LinearLayout {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(Ui.dp(c, 16), 0, Ui.dp(c, 16), 0);
 
-        ImageView icon = new ImageView(c);
-        icon.setImageDrawable(binder.icon(i));
-        binder.thumb(i, icon);
-        int s = Ui.dp(c, details ? 36 : 24);
-        LayoutParams ip = new LayoutParams(s, s);
-        ip.rightMargin = Ui.dp(c, 16);
-        r.addView(icon, ip);
+        Drawable d = binder.icon(i);
+        if (d != null) {   // a row without an icon (a setting) starts with its title
+            ImageView icon = new ImageView(c);
+            icon.setImageDrawable(d);
+            binder.thumb(i, icon);
+            int s = Ui.dp(c, details ? 36 : 24);
+            LayoutParams ip = new LayoutParams(s, s);
+            ip.rightMargin = Ui.dp(c, 16);
+            r.addView(icon, ip);
+        }
 
         LinearLayout texts = new LinearLayout(c);
         texts.setOrientation(VERTICAL);

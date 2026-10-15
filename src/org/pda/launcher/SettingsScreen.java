@@ -17,7 +17,6 @@ import android.os.Environment;
 import android.os.StatFs;
 import android.provider.Settings;
 import android.text.format.Formatter;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -54,21 +53,34 @@ final class SettingsScreen {
     private final Header header;
     private final ImageView viewBtn, sortBtn;
     private final LinearLayout banner;
-    private final LinearLayout list;      // a group's rows
+    private final PagedView list;         // a group's rows
     private final Pager pager;            // the rows' pages
+    private final List<Row> rows = new ArrayList<>();
     private final PagedView tiles;        // the general screen's tiles
     private final Pager tilePager;
     private final List<Tile> tileList = new ArrayList<>();
     private final List<Tile> shownTiles = new ArrayList<>();   // after the search and the order
-    private int rowsPerPage = 8;
     private String scope = GENERAL;
     private boolean fromGeneral;   // a group opened from the tiles: Back returns there
 
-    private final Config.Listener onConfig = this::render;
+    private final Config.Listener onConfig = keys -> render();   // it shows the values
 
     /** One row of a group: a section title, or a setting that builds its own row. */
     private interface Entry {
-        View view();
+        Row row();
+    }
+
+    /** What a row of a group shows: a title, a dim line, a value or "›", and what a tap does. */
+    private static final class Row {
+        final String title, summary, value;
+        final Runnable click;
+
+        Row(String title, String summary, String value, Runnable click) {
+            this.title = title;
+            this.summary = summary;
+            this.value = value;
+            this.click = click;
+        }
     }
 
     /** One tile of the general screen. */
@@ -141,37 +153,20 @@ final class SettingsScreen {
         root.addView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(tilePager);
 
-        android.view.GestureDetector flip = new android.view.GestureDetector(act,
-                new android.view.GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
-                if (a == null || Math.abs(vx) < Math.abs(vy) * 1.5f) return false;
-                return pager.turn(vx < 0 ? 1 : -1);
-            }
-        });
-        list = new LinearLayout(act) {
-            @Override public boolean dispatchTouchEvent(MotionEvent e) {
-                if (flip.onTouchEvent(e)) {
-                    MotionEvent cancel = MotionEvent.obtain(e);
-                    cancel.setAction(MotionEvent.ACTION_CANCEL);
-                    super.dispatchTouchEvent(cancel);
-                    cancel.recycle();
-                    return true;
-                }
-                return super.dispatchTouchEvent(e);
-            }
-        };
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int rows = Math.max(1, (b - t) / Ui.dp(act, Ui.ROW_DP));
-            if (b - t > 0 && rows != rowsPerPage) {
-                rowsPerPage = rows;
-                list.post(this::render);
-            }
+        pager = new Pager(act);
+        list = new PagedView(act, pager);
+        list.setBinder(new PagedView.Binder() {
+            @Override public int count() { return rows.size(); }
+            @Override public Drawable icon(int i) { return null; }
+            @Override public String title(int i) { return rows.get(i).title; }
+            @Override public String summary(int i) { return rows.get(i).summary; }
+            @Override public String mark(int i) { return rows.get(i).value; }
+            @Override public boolean highlight(int i) { return false; }
+            @Override public boolean dim(int i) { return false; }
+            @Override public void click(int i, View v) { rows.get(i).click.run(); }
+            @Override public boolean longClick(int i, View v) { return false; }
         });
         root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        pager = new Pager(act);
-        pager.setListener(p -> render());
         root.addView(pager);
     }
 
@@ -367,11 +362,9 @@ final class SettingsScreen {
             tiles.refresh();
             return;
         }
-        List<Entry> all = entries();
-        pager.setPages((all.size() + rowsPerPage - 1) / rowsPerPage);
-        list.removeAllViews();
-        int from = pager.page() * rowsPerPage;
-        for (int i = from; i < Math.min(all.size(), from + rowsPerPage); i++) list.addView(all.get(i).view());
+        rows.clear();
+        for (Entry e : entries()) rows.add(e.row());
+        list.refresh();
     }
 
     // --- kinds of row --------------------------------------------------------------------
@@ -379,26 +372,20 @@ final class SettingsScreen {
     /** Opens a screen of Android's. */
     private Entry link(String title, String summary, Intent intent) {
         return () -> {
-            View r = Ui.row(act, 0, title, summary, "›", false);
-            r.setOnClickListener(v -> start(intent));
-            return r;
+            return new Row(title, summary, "›", () -> start(intent));
         };
     }
 
     private Entry action(String title, String summary, Runnable run) {
         return () -> {
-            View r = Ui.row(act, 0, title, summary, "›", false);
-            r.setOnClickListener(v -> run.run());
-            return r;
+            return new Row(title, summary, "›", run);
         };
     }
 
     private Entry toggle(String key, String title) {
         return () -> {
             boolean on = Config.getBool(key);
-            View r = Ui.row(act, 0, title, null, on ? "On" : "Off", false);
-            r.setOnClickListener(v -> set(key, on ? "false" : "true"));
-            return r;
+            return new Row(title, null, on ? "On" : "Off", () -> set(key, on ? "false" : "true"));
         };
     }
 
@@ -418,8 +405,7 @@ final class SettingsScreen {
                     ? labels[i].substring(labels[i].indexOf(':') + 1) : label(values[i]);
             String cur = Config.get(key);
             int at = java.util.Arrays.asList(values).indexOf(cur);
-            View r = Ui.row(act, 0, title, null, at >= 0 ? names[at] : cur, false);
-            r.setOnClickListener(v -> new AlertDialog.Builder(act)
+            return new Row(title, null, at >= 0 ? names[at] : cur, () -> new AlertDialog.Builder(act)
                     .setTitle(title)
                     .setSingleChoiceItems(names, at, (d, which) -> {
                         d.dismiss();
@@ -427,7 +413,6 @@ final class SettingsScreen {
                     })
                     .setNegativeButton("Cancel", null)
                     .show());
-            return r;
         };
     }
 
@@ -443,8 +428,7 @@ final class SettingsScreen {
             }
             final int min = lo, max = hi;
             int cur = Config.getInt(key);
-            View r = Ui.row(act, 0, title, min + " to " + max, String.valueOf(cur), false);
-            r.setOnClickListener(v -> {
+            return new Row(title, min + " to " + max, String.valueOf(cur), () -> {
                 if (max - min <= 200) {
                     NumberPicker np = new NumberPicker(act);
                     np.setMinValue(min);
@@ -463,7 +447,6 @@ final class SettingsScreen {
                     ask(title, f, () -> set(key, f.getText().toString().trim()));
                 }
             });
-            return r;
         };
     }
 

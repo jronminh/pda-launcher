@@ -73,7 +73,6 @@ final class AppsTab {
     private final ImageView viewBtn;
     private final Pager pager;
     private final PagedView list;
-    private String query = "";
     private int generation;   // the newest reload; an older one that finishes late is dropped
 
     /** The system tells a launcher about package changes, suspended apps included. */
@@ -104,7 +103,6 @@ final class AppsTab {
             v -> PagedView.chooseMode(act, v, Config.get("apps.view"), m -> Config.set(act, "apps.view", m)));
         header = new Header(act, "Apps")
             .search(q -> {
-                query = q;
                 pager.setPage(0);
                 applyFilter();
             })
@@ -167,7 +165,8 @@ final class AppsTab {
     }
 
     /** The settings changed: the view and the grid's size take effect at once. */
-    void onConfig() {
+    void onConfig(java.util.Set<String> keys) {
+        if (!Config.touches(keys, "apps.")) return;
         applyView();
         applyFilter();   // the order may have changed
     }
@@ -255,7 +254,7 @@ final class AppsTab {
 
     private void applyFilter() {
         shown.clear();
-        String q = query.toLowerCase(Locale.ROOT);
+        String q = header.query().toLowerCase(Locale.ROOT);
         Set<String> hidden = hidden();
         for (App a : all) {
             if (hidden.contains(a.pkg)) continue;

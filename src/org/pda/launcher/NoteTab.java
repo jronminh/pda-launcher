@@ -18,13 +18,18 @@ import android.widget.Toast;
 
 /**
  * The Note tab: a whiteboard. Text only, written anywhere, never scrolled, never
- * saved: what is on it lives as long as the launcher's process. The board takes
+ * saved: what is on it lives as long as the launcher's process (kept in a static
+ * field, so a screen made again, for DeX or a new font size, keeps it). The board takes
  * text only while it still fits; when it is full, typing stops. It can be
  * locked, so it only shows what is written (no cursor, no keyboard).
  */
 final class NoteTab {
 
     private static final int SMALL = 18, MEDIUM = 26, LARGE = 36;   // sp
+
+    // The board's text and lock outlive the screen, not the process.
+    private static CharSequence kept = "";
+    private static boolean keptLocked;
 
     private final Activity act;
     private final java.util.function.Consumer<String> openSettings;
@@ -34,7 +39,7 @@ final class NoteTab {
     private boolean locked;
     private long fullToastAt;
 
-    private final Config.Listener onConfig = this::applySize;
+    private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "note.")) applySize(); };
 
     NoteTab(Activity act, java.util.function.Consumer<String> openSettings) {
         this.act = act;
@@ -44,10 +49,13 @@ final class NoteTab {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        lockBtn = Ui.textAction(act, "Lock", v -> setLocked(!locked));
+        lockBtn = Ui.textAction(act, "Lock", v -> setLocked(!locked, true));
         lockBtn.setTextSize(15);
         lockBtn.setPadding(Ui.dp(act, 12), 0, Ui.dp(act, 12), 0);
-        root.addView(Ui.header(act, Ui.title(act, "Note"), lockBtn, Ui.textAction(act, "⋮", v -> showMenu(v))));
+        root.addView(new Header(act, "Note")
+                .action(lockBtn)
+                .action(Ui.textAction(act, "⋮", v -> showMenu(v)))
+                .view());
         root.addView(Ui.divider(act));
 
         board = new EditText(act);
@@ -61,11 +69,18 @@ final class NoteTab {
         board.setVerticalScrollBarEnabled(false);
         board.setOverScrollMode(View.OVER_SCROLL_NEVER);
         board.setHorizontallyScrolling(false);
+        board.setText(kept);   // before the filter: the board is not laid out yet
         board.setFilters(new InputFilter[] { this::fit });
+        board.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) { kept = s.toString(); }
+        });
         root.addView(board, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         Config.addListener(onConfig);
         applySize();
+        if (keptLocked) setLocked(true, false);
     }
 
     View view() {
@@ -106,8 +121,10 @@ final class NoteTab {
         return "";
     }
 
-    private void setLocked(boolean on) {
+    /** Lock or unlock; {@code byUser} raises the keyboard on unlock. */
+    private void setLocked(boolean on, boolean byUser) {
         locked = on;
+        keptLocked = on;
         lockBtn.setText(on ? "Unlock" : "Lock");
         board.setFocusable(!on);
         board.setFocusableInTouchMode(!on);
@@ -117,7 +134,7 @@ final class NoteTab {
         if (on) {
             board.clearFocus();
             hideIme();
-        } else {
+        } else if (byUser) {
             board.requestFocus();
             InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.showSoftInput(board, InputMethodManager.SHOW_IMPLICIT);

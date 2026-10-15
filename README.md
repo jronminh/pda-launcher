@@ -11,11 +11,13 @@ A home screen with five tabs on a bar at the bottom (no swiping):
   header menu (⋮) has Show/Hide apps and Apps settings.
 - **Favorites**: favourite files and folders, in the order they were added. Tap a
   folder to show it in Files, a file to open it; long-press to reorder, show in
-  folder, or remove. Items are added from Files (select, ⋮ › Add to favorites).
+  folder, or remove. Items are added from Files (select, ⋮ › Add to favorites),
+  and follow the files when Files moves, renames or deletes them.
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
 - **Note**: a whiteboard. Text only, written anywhere, never scrolled and never
-  saved: it lasts as long as the launcher's process. It takes text only while
+  saved: it lasts as long as the launcher's process (a screen made again, for
+  DeX or a new font size, keeps it). It takes text only while
   the text fits the board. *Lock* makes it display only (no cursor, no
   keyboard); ⋮ › Clear empties it.
 

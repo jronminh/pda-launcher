@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
  * name that is taken gets " (1)", " (2)"... as DocumentsUI's providers do. A
  * symlink is copied as a link and deleted as a link: its target is never
  * touched. Every path that changed is handed to the media scanner, so the
- * media roots follow.
+ * media roots follow, and {@link Favorites} follow a move, a rename or a delete.
  */
 final class FileOps {
 
@@ -45,6 +45,7 @@ final class FileOps {
     private FileOps() {}
 
     static void copy(Context c, List<File> items, File into, boolean move, Progress p) {
+        final Context app = c.getApplicationContext();
         run(c, p, items.size(), (changed, step) -> {
             for (File src : items) {
                 if (isInside(into, src)) throw new IOException("cannot put " + src.getName() + " inside itself");
@@ -58,15 +59,18 @@ final class FileOps {
                     copyTree(src, dst, changed);
                     if (move) deleteTree(src, changed);
                 }
+                if (move) Favorites.moved(app, src, dst);
                 step.run();
             }
         });
     }
 
     static void delete(Context c, List<File> items, Progress p) {
+        final Context app = c.getApplicationContext();
         run(c, p, items.size(), (changed, step) -> {
             for (File f : items) {
                 deleteTree(f, changed);
+                Favorites.deleted(app, f);
                 step.run();
             }
         });
@@ -80,6 +84,7 @@ final class FileOps {
         if (dst.exists()) return "\"" + name + "\" already exists";
         if (!f.renameTo(dst)) return "could not rename " + f.getName();
         scan(c, f, dst);
+        Favorites.moved(c, f, dst);
         return null;
     }
 

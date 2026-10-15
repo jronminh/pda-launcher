@@ -26,7 +26,9 @@ that contain the text (at most 200).
 - **First screen:** how full storage is (a banner with a bar), over the roots,
   shown in the tab's view (details, list or grid).
 - **A folder:** the path as crumbs (each one goes back there), folders first,
-  then the sort: name, date modified, size or type. Choosing the current sort
+  then the sort: name, date modified, size or type (each file is read once for
+  it: on shared storage every look at a file goes through FUSE). Recent has no
+  sort, it is newest first by what it is. Choosing the current sort
   again turns the order round. Hidden files are off by default (⋮). ‹ in the
   header goes back, as Back does.
 - Lists turn pages (`‹ 1/3 ›` or a horizontal swipe); the rows per page follow

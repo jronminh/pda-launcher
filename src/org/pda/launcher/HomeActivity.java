@@ -72,7 +72,7 @@ public class HomeActivity extends Activity {
             b.setTextSize(14);
             b.setSingleLine(true);
             b.setTextColor(Ui.TEXT);
-            b.setPadding(0, dp(this, 14), 0, dp(this, 14));
+            b.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
             b.setOnClickListener(v -> { closeSettings(); show(which); });
             row.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             buttons[i] = b;
@@ -240,9 +240,5 @@ public class HomeActivity extends Activity {
         } catch (PackageManager.NameNotFoundException e) {
             return "";
         }
-    }
-
-    static int dp(Context c, int v) {
-        return Ui.dp(c, v);
     }
 }

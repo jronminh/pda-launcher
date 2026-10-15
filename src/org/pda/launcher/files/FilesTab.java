@@ -126,7 +126,8 @@ public final class FilesTab {
     private boolean noAccess;   // no storage permission: the page asks for it
 
     private final Runnable runSearch = this::load;
-    private final Config.Listener onConfig = this::load;   // the order, hidden files, the view
+    // The order, hidden files, the view: read the place again.
+    private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "files.")) load(); };
 
     /** {@code openSettings} opens a settings screen: "files" for this tab's. */
     public FilesTab(Activity act, java.util.function.Consumer<String> openSettings) {
@@ -386,29 +387,47 @@ public final class FilesTab {
         render();
     }
 
+    /** What sorting needs of a file, read once: on shared storage every stat goes
+     *  through FUSE, and a comparator would ask for it at every comparison. */
+    private static final class Key {
+        final File file;
+        final boolean dir;
+        final String name;
+        final long date, size;
+
+        Key(File f) {
+            file = f;
+            dir = f.isDirectory();
+            name = f.getName();
+            date = f.lastModified();
+            size = dir ? 0 : f.length();
+        }
+    }
+
     /** Folders first, then the order {@code by} (name, date, size, type); a tie is
      *  broken by name. */
     static void sort(List<File> files, String by, boolean desc) {
-        Comparator<File> name = (a, b) -> a.getName().compareToIgnoreCase(b.getName());
-        Comparator<File> order;
+        List<Key> keys = new ArrayList<>(files.size());
+        for (File f : files) keys.add(new Key(f));
+        Comparator<Key> name = (a, b) -> a.name.compareToIgnoreCase(b.name);
+        Comparator<Key> order;
         switch (by) {
-            case "date": order = (a, b) -> Long.compare(a.lastModified(), b.lastModified()); break;
-            case "size": order = (a, b) -> Long.compare(a.isDirectory() ? 0 : a.length(),
-                                                        b.isDirectory() ? 0 : b.length()); break;
-            case "type": order = (a, b) -> ext(a).compareToIgnoreCase(ext(b)); break;
+            case "date": order = (a, b) -> Long.compare(a.date, b.date); break;
+            case "size": order = (a, b) -> Long.compare(a.size, b.size); break;
+            case "type": order = (a, b) -> ext(a.name).compareToIgnoreCase(ext(b.name)); break;
             default: order = name;
         }
-        Comparator<File> chosen = desc ? order.reversed() : order;
-        Collections.sort(files, (a, b) -> {
-            boolean da = a.isDirectory(), db = b.isDirectory();
-            if (da != db) return da ? -1 : 1;
+        Comparator<Key> chosen = desc ? order.reversed() : order;
+        Collections.sort(keys, (a, b) -> {
+            if (a.dir != b.dir) return a.dir ? -1 : 1;
             int c = chosen.compare(a, b);
             return c != 0 ? c : name.compare(a, b);
         });
+        files.clear();
+        for (Key k : keys) files.add(k.file);
     }
 
-    private static String ext(File f) {
-        String n = f.getName();
+    private static String ext(String n) {
         int dot = n.lastIndexOf('.');
         return dot > 0 ? n.substring(dot + 1) : "";
     }
@@ -427,7 +446,9 @@ public final class FilesTab {
         else header.setTitle("Files");
         header.showBack(!selecting && history.size() > 1);
         header.setSearchEnabled(!selecting);
-        sortBtn.setVisibility(selecting || home ? View.GONE : View.VISIBLE);
+        // Recent is newest first by what it is (as DocumentsUI's), so it has no sort.
+        boolean recent = p.mode == Mode.MEDIA && p.root.kind == Roots.Kind.RECENT && header.query().isEmpty();
+        sortBtn.setVisibility(selecting || home || recent ? View.GONE : View.VISIBLE);
         closeBtn.setVisibility(selecting ? View.VISIBLE : View.GONE);
         moreBtn.setVisibility(selecting ? View.GONE : View.VISIBLE);
         String mode = Config.get("files.view");

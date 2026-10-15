@@ -53,7 +53,7 @@ public final class FavoritesTab {
     private List<File> favs = new ArrayList<>();    // in the order added
     private final List<File> shown = new ArrayList<>();
 
-    private final Config.Listener onConfig = this::onConfig;
+    private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "favorites.")) onConfig(); };
 
     public FavoritesTab(Activity act, Host host) {
         this.act = act;
