@@ -61,6 +61,7 @@ public final class FavoritesTab {
     private final Pager pager;
     private final PagedView list;
     private final TextView empty;
+    private final LinearLayout banner;   // what the Briefcase holds, at a glance (as Prefs' banner)
     private List<Item> items = new ArrayList<>();    // in the user's order
     private final List<Item> shown = new ArrayList<>();
     private boolean more;   // in More (every item, sorted), not on the tiles
@@ -93,6 +94,11 @@ public final class FavoritesTab {
                 .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
+
+        banner = new LinearLayout(act);
+        banner.setOrientation(LinearLayout.VERTICAL);
+        banner.setPadding(Ui.dp(act, 16), Ui.dp(act, 10), Ui.dp(act, 16), Ui.dp(act, 10));
+        root.addView(banner);
 
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
@@ -216,7 +222,50 @@ public final class FavoritesTab {
                     + "or in Files, long-press a file or a folder,\nthen ⋮ › Add to Briefcase."
                 : "Nothing matches.");
         empty.setVisibility(shown.isEmpty() ? View.VISIBLE : View.GONE);
+        fillBanner();
         list.refresh();
+    }
+
+    /** "Briefcase", then how many of each kind: on the tiles only, as Prefs shows its banner. */
+    private void fillBanner() {
+        banner.removeAllViews();
+        banner.setVisibility(onTiles() && !items.isEmpty() ? View.VISIBLE : View.GONE);
+        int files = 0, folders = 0, links = 0, apps = 0;
+        for (Item it : items) {
+            if (it.file() != null) {
+                if (it.file().isDirectory()) folders++;
+                else files++;
+            } else if (Item.URL.equals(it.kind)) {
+                links++;
+            } else {
+                apps++;
+            }
+        }
+        TextView t = new TextView(act);
+        t.setText(items.size() + (items.size() == 1 ? " item" : " items"));
+        t.setTextColor(Ui.TEXT);
+        t.setTextSize(18);
+        banner.addView(t);
+        StringBuilder sb = new StringBuilder();
+        count(sb, files, "file");
+        count(sb, folders, "folder");
+        count(sb, links, "link");
+        count(sb, apps, "app or shortcut", "apps or shortcuts");
+        TextView d = new TextView(act);
+        d.setText(sb);
+        d.setTextColor(Ui.DIM);
+        d.setTextSize(13);
+        banner.addView(d);
+    }
+
+    private static void count(StringBuilder sb, int n, String one) {
+        count(sb, n, one, one + "s");
+    }
+
+    private static void count(StringBuilder sb, int n, String one, String many) {
+        if (n == 0) return;
+        if (sb.length() > 0) sb.append(" · ");
+        sb.append(n).append(' ').append(n == 1 ? one : many);
     }
 
     /** favorites.sort: the order added, or name, date, size, type (things not files: by name). */
@@ -367,21 +416,14 @@ public final class FavoritesTab {
     }
 
     private void rename(Item it) {
-        final EditText name = new EditText(act);
-        name.setSingleLine(true);
-        name.setText(it.title);
-        name.selectAll();
-        new AlertDialog.Builder(act)
-                .setTitle("Rename")
-                .setView(name)
-                .setPositiveButton("OK", (d, w) -> {
-                    String t = name.getText().toString().trim();
-                    if (t.isEmpty()) return;
-                    items.set(items.indexOf(it), it.renamed(t));
+        new org.pda.launcher.Prompt(act, "Rename")
+                .field("Name", it.title)
+                .ok("Rename", v -> {
+                    if (v[0].isEmpty() || !items.contains(it)) return;
+                    items.set(items.indexOf(it), it.renamed(v[0]));
                     save();
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .show(root);
     }
 
     // --- adding --------------------------------------------------------------------------
@@ -406,32 +448,19 @@ public final class FavoritesTab {
     }
 
     private void addLink() {
-        LinearLayout box = new LinearLayout(act);
-        box.setOrientation(LinearLayout.VERTICAL);
-        int p = Ui.dp(act, 20);
-        box.setPadding(p, Ui.dp(act, 8), p, 0);
-        final EditText url = new EditText(act);
-        url.setSingleLine(true);
-        url.setHint("https://…");
-        url.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI | android.text.InputType.TYPE_CLASS_TEXT);
-        final EditText title = new EditText(act);
-        title.setSingleLine(true);
-        title.setHint("Name (optional)");
-        box.addView(url);
-        box.addView(title);
-        new AlertDialog.Builder(act)
-                .setTitle("Add a link")
-                .setView(box)
-                .setPositiveButton("Add", (d, w) -> {
-                    String u = url.getText().toString().trim();
+        new org.pda.launcher.Prompt(act, "Add a link")
+                .field("https://…", null, android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_URI)
+                .field("Name (optional)", null)
+                .ok("Add", v -> {
+                    String u = v[0];
                     if (u.isEmpty()) return;
                     if (!u.contains("://")) u = "https://" + u;
-                    String t = title.getText().toString().trim();
+                    String t = v[1];
                     if (t.isEmpty()) t = Uri.parse(u).getHost() != null ? Uri.parse(u).getHost() : u;
                     added(Favorites.addItem(act, Item.url(t, u)), t);
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .show(root);
     }
 
     /** + › App or its shortcut: the app, then the app itself or one of its shortcuts. */

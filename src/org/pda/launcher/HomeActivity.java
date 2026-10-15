@@ -131,7 +131,7 @@ public class HomeActivity extends Activity {
         boolean resume = Config.getBool("launcher.resume") && st.contains("tab");
         int start = resume ? st.getInt("tab", homeTab()) : homeTab();
         if (resume) {
-            today.show(st.getInt("todayPart", TodayTab.TODAY));
+            today.show(st.getInt("todayPart", TodayTab.START));
             files.restore(st.getString("filesPlace", null));
         }
         open(tabOf(getIntent(), start));
@@ -262,7 +262,7 @@ public class HomeActivity extends Activity {
     /** EXTRA_PART: a part of the Today tab to open (Share › Show on Note opens the board). */
     private void showPart(Intent i) {
         if (i == null || !i.hasExtra(EXTRA_PART)) return;
-        int p = i.getIntExtra(EXTRA_PART, TodayTab.TODAY);
+        int p = i.getIntExtra(EXTRA_PART, TodayTab.START);
         i.removeExtra(EXTRA_PART);
         if (tab == TODAY) today.show(p);
     }
@@ -291,7 +291,7 @@ public class HomeActivity extends Activity {
             case APPS: apps.reset(); break;
             case FAVORITES: favorites.toStart(); break;
             case FILES: files.toStart(); break;
-            case TODAY: today.show(TodayTab.TODAY); break;
+            case TODAY: today.show(TodayTab.START); break;
             default: settingsTab.open(SettingsScreen.GENERAL);
         }
     }

@@ -71,6 +71,7 @@ ICONS = {
     "timer":    "M7,3h10 M7,21h10 M8,3v3l4,6l-4,6v3 M16,3v3l-4,6l4,6v3",
     "event_add": "M4,5h16v15h-16z M4,9h16 M8,3v4 M16,3v4 M12,12v6 M9,15h6",
     "launch":   "M14,4h6v6 M20,4l-9,9 M18,14v6h-14v-14h6",
+    "terminal": "M3,5h18v14h-18z M7,10l3,2.5l-3,2.5 M12,15h5",
     # The viewers
     "play":     "M7,5l12,7l-12,7z",
     "pause":    "M7,5h3v14h-3z M14,5h3v14h-3z",

@@ -17,7 +17,9 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   marked • until first opened. Action tiles, off until turned on in ⋮ ›
   Tiles: Flashlight (On/Off), Capture (the inbox's count), Timer (pick the
   minutes), New event, Web search; Clock says the next alarm and Calendar the
-  next event. The search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
+  next event; Shell opens a terminal (Termux, dn-shell and other known ones
+  found, or any app chosen). Web search, Rename, Add link and Edit task ask in
+  the launcher's own card, not Android's dialog. The search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
   turned on, the next calendar event (tap for the Calendar); the next alarm and
   the battery, with the time to full while charging (tap for the battery
   screen). No widgets, no wallpaper. Tap to open; long-press for the app's own
@@ -25,7 +27,8 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   Uninstall. The grid follows installs, removals and suspended apps
   (`LauncherApps.Callback`). The header menu (⋮) has Show/Hide apps, the grid's
   size, the glance line and its next event.
-- **Briefcase**: what you carry, as tiles in the look of Applications: files,
+- **Briefcase**: what you carry, as tiles in the look of Applications (a banner
+  counts them by kind): files,
   folders, links, apps and apps' shortcuts, in your order (a More tile when
   they pass a page). Tap to open (a file in its viewer, a folder in Files);
   long-press to rename, move, remove, and for a file Open with, Details, Show
@@ -35,8 +38,12 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   renames and deletes; shortcuts are pinned so their app keeps them.
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
-- **Today**: the PDA's information centre, in four parts:
-  - *Today*: today's calendar, the next alarm, the three most pressing tasks,
+- **Today**: the PDA's information centre, in the look of the other tabs: a
+  banner (the date, the next alarm, today's events; tap for the agenda) over
+  tiles, each a part with its state (Agenda's next event, the open and due
+  tasks, the captures), opened with ‹ to come back; + adds a task or a
+  capture; the Folder tile opens the files in Files.
+  - *Agenda*: today's calendar, the next alarm, the three most pressing tasks,
     the inbox, and a brief if something wrote one.
   - *Tasks*: `todo.txt` (the todo.txt format: `(A)` priorities, `due:` dates);
     tap to tick, long-press to edit or delete.
@@ -87,7 +94,7 @@ a selection's actions (Copy, Move, Delete, Share, more) are icons over small
 labels, and so is *Paste here*.
 
 Tapping the button of the tab already open takes it to its start (Files to its
-first screen, Today to its Today part...). After the launcher's process was
+first screen, Today to its tiles...). After the launcher's process was
 killed (an update, low memory, a reboot) it starts where it was left: the tab,
 Today's part, Files' place (Prefs › Launcher › Start where I left off).
 

@@ -283,6 +283,7 @@ final class AppsTab {
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MAPS)));
         r.add(new Role("calculator", "Calculator", R.drawable.ic_calc,
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR)));
+        r.add(new Role("shell", "Shell", R.drawable.ic_terminal, null));   // a terminal: no standard intent
         r.add(new Role("store", "Store", R.drawable.ic_store,
                 new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.pda.launcher"))));
         // Actions: the tile does a thing at once (intent: the app that must exist for it, or none).
@@ -346,10 +347,40 @@ final class AppsTab {
         return null;
     }
 
+    /**
+     * Terminals a Shell tile may open, the first installed by default. Android has
+     * no intent for "a terminal", so they are known by name; any app can be chosen.
+     */
+    private static final String[] TERMINALS = {
+        "com.termux", "org.dn.shell", "org.dn.shell.dev", "com.termoneplus", "jackpal.androidterm",
+        "yarolegovich.materialterminal", "com.offsec.nhterm", "ru.meefik.linuxdeploy", "tech.ula",
+        "com.server.auditor.ssh.client", "org.connectbot", "com.sonelli.juicessh",
+    };
+
+    /** The apps that answer a tile's need (for Shell, the known terminals installed). */
+    private List<App> candidates(Role r, Map<String, App> byPkg) {
+        List<App> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (r.intent == null) {
+            for (String p : TERMINALS) if (byPkg.containsKey(p)) out.add(byPkg.get(p));
+            return out;
+        }
+        for (android.content.pm.ResolveInfo ri : act.getPackageManager().queryIntentActivities(r.intent, 0)) {
+            App a = byPkg.get(ri.activityInfo.packageName);
+            if (a != null && seen.add(a.pkg)) out.add(a);
+        }
+        Collections.sort(out, (x, y) -> x.name.compareToIgnoreCase(y.name));
+        return out;
+    }
+
     /** The app a tile opens: the one chosen for it, else Android's default for its need; null if none. */
     private App appFor(Role r, Map<String, App> byPkg) {
         String chosen = prefs.getString("role." + r.key, null);
         if (chosen != null && byPkg.containsKey(chosen)) return byPkg.get(chosen);
+        if (r.intent == null) {
+            List<App> c = candidates(r, byPkg);
+            return c.isEmpty() ? null : c.get(0);
+        }
         try {
             android.content.pm.ResolveInfo ri = act.getPackageManager()
                     .resolveActivity(r.intent, PackageManager.MATCH_DEFAULT_ONLY);
@@ -427,24 +458,11 @@ final class AppsTab {
             case "event":
                 start(new Intent(Intent.ACTION_INSERT, android.provider.CalendarContract.Events.CONTENT_URI));
                 break;
-            default: {   // websearch
-                final android.widget.EditText q = new android.widget.EditText(act);
-                q.setSingleLine(true);
-                q.setHint("Search the web");
-                q.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
-                final AlertDialog d = new AlertDialog.Builder(act)
-                        .setView(q)
-                        .setPositiveButton("Search", (dd, w) -> webSearch(q.getText().toString()))
-                        .setNegativeButton("Cancel", null)
-                        .create();
-                q.setOnEditorActionListener((v, id, e) -> {
-                    d.dismiss();
-                    webSearch(q.getText().toString());
-                    return true;
-                });
-                d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
-                d.show();
-            }
+            default:   // websearch
+                new Prompt(act, "Web search")
+                        .field("Words to search for", null)
+                        .ok("Search", v -> webSearch(v[0]))
+                        .show(root);
         }
     }
 
@@ -513,15 +531,9 @@ final class AppsTab {
 
     /** Which app a tile opens: the apps for its need, any app, or Android's default again. */
     private void chooseApp(Role r) {
-        List<App> cands = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
         Map<String, App> byPkg = new java.util.HashMap<>();
         for (App a : all) byPkg.put(a.pkg, a);
-        for (android.content.pm.ResolveInfo ri : act.getPackageManager().queryIntentActivities(r.intent, 0)) {
-            App a = byPkg.get(ri.activityInfo.packageName);
-            if (a != null && seen.add(a.pkg)) cands.add(a);
-        }
-        Collections.sort(cands, (x, y) -> x.name.compareToIgnoreCase(y.name));
+        List<App> cands = candidates(r, byPkg);
         final boolean chosen = prefs.contains("role." + r.key);
         String[] names = new String[cands.size() + (chosen ? 2 : 1)];
         int n = 0;
