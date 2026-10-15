@@ -8,54 +8,82 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
 import android.os.Build;
+import android.os.Environment;
 import android.os.StatFs;
 import android.provider.Settings;
 import android.text.format.Formatter;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 /**
- * The Settings screen, opened from the Apps menu: the app's settings
- * ({@link Config}) and shortcuts to the basic Android ones, one page at a time.
- * Android's settings are not the app's to change: their rows show the state
- * where an app can read it, and open the system screen.
+ * Settings, after the Boox launcher's settings but smaller, and hiding nothing of
+ * Android's. The Settings tab ({@link #GENERAL}) is a banner (the device and the
+ * app) over tiles, shown as a grid by default (or details, or a list): the
+ * launcher's own groups open their settings here, Android's open its screens.
+ * A group's settings ({@link #LAUNCHER} or a tab's) are a list of rows; a tab's
+ * menu opens its own the same way, over the tabs.
  */
 final class SettingsScreen {
+
+    /** What the screen shows: the tiles, or one group's settings. */
+    static final String GENERAL = "general", LAUNCHER = "launcher", APPS = "apps",
+            FAVORITES = "favorites", FILES = "files", NOTE = "note";
+    private static final String[] VIEWS = { "details:Details", "list:List", "grid:Grid" };
 
     private final Activity act;
     private final Runnable showHideApps;
     private final Runnable close;
     private final LinearLayout root;
-    private final LinearLayout list;
-    private final Pager pager;
+    private final TextView title, back;
+    private final ImageView viewBtn;
+    private final LinearLayout banner;
+    private final LinearLayout list;      // a group's rows
+    private final Pager pager;            // the rows' pages
+    private final PagedView tiles;        // the general screen's tiles
+    private final Pager tilePager;
+    private final List<Tile> tileList = new ArrayList<>();
     private int rowsPerPage = 8;
-    private final android.widget.TextView title;
-    private final android.widget.TextView back;
     private String scope = GENERAL;
-    private boolean fromGeneral;   // a tab's settings opened from the general screen: Back returns there
-
-    /** What the screen shows: the general settings, or one tab's. */
-    static final String GENERAL = "general", APPS = "apps", FAVORITES = "favorites", FILES = "files", NOTE = "note";
-    private static final String[] VIEWS = { "details:Details", "list:List", "grid:Grid" };
+    private boolean fromGeneral;   // a group opened from the tiles: Back returns there
 
     private final Config.Listener onConfig = this::render;
 
-    /** One row of the list: a section title, or a setting that builds its own row. */
+    /** One row of a group: a section title, or a setting that builds its own row. */
     private interface Entry {
         View view();
+    }
+
+    /** One tile of the general screen. */
+    private static final class Tile {
+        final int icon;
+        final String title;
+        final Supplier<String> summary;
+        final Runnable open;
+
+        Tile(int icon, String title, Supplier<String> summary, Runnable open) {
+            this.icon = icon;
+            this.title = title;
+            this.summary = summary;
+            this.open = open;
+        }
     }
 
     /**
@@ -70,18 +98,47 @@ final class SettingsScreen {
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        // The header: ‹ (back to the tab it came from), then the title.
+        // The header: ‹ (inside a group), the title, the view button (the tiles).
         LinearLayout titleBox = new LinearLayout(act);
-        titleBox.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        titleBox.setGravity(Gravity.CENTER_VERTICAL);
         back = Ui.textAction(act, "‹", v -> onBack());
         back.setTextSize(28);
         titleBox.addView(back);
         title = Ui.title(act, "Settings");
         titleBox.addView(title);
-        LinearLayout header = Ui.header(act, titleBox);
+        viewBtn = Ui.action(act, PagedView.iconOf(Config.get("settings.view")), "View",
+                v -> PagedView.chooseMode(act, v, Config.get("settings.view"), m -> Config.set(act, "settings.view", m)));
+        LinearLayout header = Ui.header(act, titleBox, viewBtn);
         header.setPadding(0, 0, Ui.dp(act, 4), 0);
         root.addView(header);
         root.addView(Ui.divider(act));
+
+        banner = new LinearLayout(act);
+        banner.setOrientation(LinearLayout.VERTICAL);
+        banner.setPadding(Ui.dp(act, 20), Ui.dp(act, 16), Ui.dp(act, 20), Ui.dp(act, 16));
+        banner.setOnClickListener(v -> start(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)));
+        root.addView(banner);
+
+        tilePager = new Pager(act);
+        tiles = new PagedView(act, tilePager);
+        buildTiles();
+        tiles.setBinder(new PagedView.Binder() {
+            @Override public int count() { return tileList.size(); }
+            @Override public Drawable icon(int i) { return act.getDrawable(tileList.get(i).icon); }
+            @Override public String title(int i) { return tileList.get(i).title; }
+            @Override public String summary(int i) {
+                Supplier<String> s = tileList.get(i).summary;
+                return s == null ? null : s.get();
+            }
+            @Override public String mark(int i) { return null; }
+            @Override public boolean highlight(int i) { return false; }
+            @Override public boolean dim(int i) { return false; }
+            @Override public void click(int i, View v) { tileList.get(i).open.run(); }
+            @Override public boolean longClick(int i, View v) { return false; }
+        });
+        tiles.setGrid(4, 0);
+        root.addView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        root.addView(tilePager);
 
         android.view.GestureDetector flip = new android.view.GestureDetector(act,
                 new android.view.GestureDetector.SimpleOnGestureListener() {
@@ -121,13 +178,10 @@ final class SettingsScreen {
         return root;
     }
 
-    /** Show the settings of {@code scope} (GENERAL or a tab), from the first page. */
+    /** Show {@code scope} (GENERAL or a group), from the first page. */
     void open(String scope) {
         fromGeneral = false;
         this.scope = scope;
-        title.setText(GENERAL.equals(scope) ? "Settings"
-                : scope.substring(0, 1).toUpperCase(Locale.ROOT) + scope.substring(1) + " settings");
-        showBack();
         pager.setPage(0);
         onShow();
     }
@@ -142,8 +196,8 @@ final class SettingsScreen {
     }
 
     /**
-     * Back (and ‹): from a tab's settings reached through the general screen,
-     * back to it; otherwise close the screen.
+     * Back (and ‹): from a group opened from the tiles, back to them; otherwise
+     * close the screen.
      * @return false when there is nothing to go back to (the Settings tab).
      */
     boolean onBack() {
@@ -153,77 +207,151 @@ final class SettingsScreen {
         return true;
     }
 
-    private void openTab(String tab) {
-        open(tab);
+    private void openGroup(String group) {
+        open(group);
         fromGeneral = true;
-        showBack();
+        render();
     }
 
-    /** The Settings tab shows ‹ only inside a tab's settings. */
-    private void showBack() {
-        back.setVisibility(close != null || fromGeneral ? View.VISIBLE : View.GONE);
-        title.setPadding(back.getVisibility() == View.VISIBLE ? 0 : Ui.dp(act, 16), 0, 0, 0);
+    // --- the tiles -----------------------------------------------------------------------
+
+    private void buildTiles() {
+        // The launcher's own: their settings open here.
+        tileList.add(new Tile(R.drawable.ic_home, "Launcher",
+                () -> "Home button: " + label(Config.get("launcher.homeTab")), () -> openGroup(LAUNCHER)));
+        tileList.add(new Tile(R.drawable.ic_apps, "Apps", () -> "View, grid, Show/Hide", () -> openGroup(APPS)));
+        tileList.add(new Tile(R.drawable.ic_star, "Favorites", () -> "View", () -> openGroup(FAVORITES)));
+        tileList.add(new Tile(R.drawable.ic_folder, "Files", () -> "View, hidden files, access", () -> openGroup(FILES)));
+        tileList.add(new Tile(R.drawable.ic_pencil, "Note", () -> "Text size", () -> openGroup(NOTE)));
+        // Android's: each opens its screen.
+        tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
+        tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
+        tileList.add(android(R.drawable.ic_display, "Display", null, Settings.ACTION_DISPLAY_SETTINGS));
+        tileList.add(android(R.drawable.ic_sound, "Sound", null, Settings.ACTION_SOUND_SETTINGS));
+        tileList.add(android(R.drawable.ic_bell, "Notifications", null, "android.settings.NOTIFICATION_SETTINGS"));
+        tileList.add(android(R.drawable.ic_battery, "Battery", this::batteryState, Intent.ACTION_POWER_USAGE_SUMMARY));
+        tileList.add(android(R.drawable.ic_storage, "Storage", this::storageState, Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
+        tileList.add(android(R.drawable.ic_view_grid, "Applications", null, Settings.ACTION_APPLICATION_SETTINGS));
+        tileList.add(android(R.drawable.ic_location, "Location", null, Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+        tileList.add(android(R.drawable.ic_lock, "Security", null, Settings.ACTION_SECURITY_SETTINGS));
+        tileList.add(android(R.drawable.ic_account, "Accounts", null, Settings.ACTION_SYNC_SETTINGS));
+        tileList.add(android(R.drawable.ic_calendar, "Date & time", null, Settings.ACTION_DATE_SETTINGS));
+        tileList.add(android(R.drawable.ic_globe, "Language", null, Settings.ACTION_LOCALE_SETTINGS));
+        tileList.add(android(R.drawable.ic_code, "Developer", null, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+        tileList.add(android(R.drawable.ic_info, "About phone", () -> "Android " + Build.VERSION.RELEASE,
+                Settings.ACTION_DEVICE_INFO_SETTINGS));
+        tileList.add(android(R.drawable.ic_gear, "All settings", null, Settings.ACTION_SETTINGS));
     }
 
-    // --- the list ------------------------------------------------------------------------
+    private Tile android(int icon, String title, Supplier<String> summary, String action) {
+        return new Tile(icon, title, summary, () -> start(new Intent(action)));
+    }
+
+    /** The banner: the device and the app, at a glance. */
+    private void fillBanner() {
+        banner.removeAllViews();
+        String name = Settings.Global.getString(act.getContentResolver(), Settings.Global.DEVICE_NAME);
+        if (name == null || name.isEmpty()) name = Build.MODEL;
+        TextView n = new TextView(act);
+        n.setText(name);
+        n.setTextColor(Ui.TEXT);
+        n.setTextSize(22);
+        banner.addView(n);
+        banner.addView(dim(Build.MANUFACTURER.substring(0, 1).toUpperCase(Locale.ROOT)
+                + Build.MANUFACTURER.substring(1) + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE));
+
+        long total = 0, free = 0;
+        try {
+            StatFs fs = new StatFs(Environment.getExternalStorageDirectory().getPath());
+            total = fs.getTotalBytes();
+            free = fs.getAvailableBytes();
+        } catch (IllegalArgumentException ignore) {}
+        String battery = batteryState();
+        TextView line = dim((battery != null ? "Battery " + battery + "   ·   " : "")
+                + "Storage " + Formatter.formatShortFileSize(act, free) + " free of "
+                + Formatter.formatShortFileSize(act, total));
+        line.setPadding(0, Ui.dp(act, 10), 0, 0);
+        banner.addView(line);
+        // How full the storage is: a white part on a dark line.
+        LinearLayout bar = new LinearLayout(act);
+        bar.setBackgroundColor(Ui.LINE);
+        bar.setWeightSum(1f);
+        View used = new View(act);
+        used.setBackgroundColor(Ui.TEXT);
+        bar.addView(used, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT,
+                total > 0 ? (float) (total - free) / total : 0f));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 4));
+        lp.topMargin = Ui.dp(act, 8);
+        banner.addView(bar, lp);
+
+        TextView app = dim("PDA Launcher " + HomeActivity.versionName(act)
+                + (isDefaultHome() ? " · the home app" : " · not the home app"));
+        app.setPadding(0, Ui.dp(act, 10), 0, 0);
+        banner.addView(app);
+    }
+
+    private TextView dim(String text) {
+        TextView t = new TextView(act);
+        t.setText(text);
+        t.setTextColor(Ui.DIM);
+        t.setTextSize(13);
+        return t;
+    }
+
+    // --- a group's rows ------------------------------------------------------------------
 
     private List<Entry> entries() {
         List<Entry> e = new ArrayList<>();
         switch (scope) {
+            case LAUNCHER:
+                e.add(choice("launcher.homeTab", "Home button opens"));
+                e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
+                        new Intent(Settings.ACTION_HOME_SETTINGS)));
+                e.add(link("App info", "PDA Launcher " + HomeActivity.versionName(act), appDetails()));
+                break;
             case APPS:
                 e.add(choice("apps.view", "View", VIEWS));
                 e.add(number("apps.columns", "Grid columns"));
                 e.add(number("apps.rows", "Grid rows"));
                 e.add(action("Show/Hide apps", "Which apps the tab lists", showHideApps));
-                return e;
+                break;
             case FAVORITES:
                 e.add(choice("favorites.view", "View", VIEWS));
-                return e;
+                break;
             case FILES:
                 e.add(choice("files.view", "View", VIEWS));
                 e.add(toggle("files.showHidden", "Show hidden files"));
                 e.add(link("Storage access", storageGranted() ? "Allowed" : "Not allowed", appDetails()));
-                return e;
+                break;
             case NOTE:
                 e.add(choice("note.textSize", "Text size"));
-                return e;
+                break;
             default:
                 break;
         }
-        // The general settings: the launcher, Android's screens, about.
-        e.add(section("Launcher"));
-        e.add(choice("launcher.homeTab", "Home button opens"));
-        e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
-                new Intent(Settings.ACTION_HOME_SETTINGS)));
-
-        // Each tab's own settings, also reached from the tab's menu.
-        e.add(section("Tabs"));
-        e.add(action("Apps", "View, grid size, Show/Hide apps", () -> openTab(APPS)));
-        e.add(action("Favorites", "View", () -> openTab(FAVORITES)));
-        e.add(action("Files", "View, hidden files, storage access", () -> openTab(FILES)));
-        e.add(action("Note", "Text size", () -> openTab(NOTE)));
-
-        e.add(section("Android"));
-        e.add(link("Wi-Fi", wifiState(), new Intent(Settings.ACTION_WIFI_SETTINGS)));
-        e.add(link("Bluetooth", bluetoothState(), new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
-        e.add(link("Display", null, new Intent(Settings.ACTION_DISPLAY_SETTINGS)));
-        e.add(link("Sound", null, new Intent(Settings.ACTION_SOUND_SETTINGS)));
-        e.add(link("Battery", batteryState(), new Intent(Intent.ACTION_POWER_USAGE_SUMMARY)));
-        e.add(link("Storage", storageState(), new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)));
-        e.add(link("Apps", null, new Intent(Settings.ACTION_APPLICATION_SETTINGS)));
-        e.add(link("Date & time", null, new Intent(Settings.ACTION_DATE_SETTINGS)));
-        e.add(link("Language & input", null, new Intent(Settings.ACTION_LOCALE_SETTINGS)));
-        e.add(link("Developer options", null, new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)));
-        e.add(link("About phone", "Android " + Build.VERSION.RELEASE + " · " + Build.MODEL,
-                new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)));
-        e.add(link("All settings", null, new Intent(Settings.ACTION_SETTINGS)));
-
-        e.add(section("About"));
-        e.add(link("PDA Launcher", "Version " + HomeActivity.versionName(act) + " · App info", appDetails()));
         return e;
     }
 
     private void render() {
+        boolean general = GENERAL.equals(scope);
+        title.setText(general ? "Settings" : label(scope) + (LAUNCHER.equals(scope) ? "" : " settings"));
+        boolean showBack = close != null || fromGeneral;
+        back.setVisibility(showBack ? View.VISIBLE : View.GONE);
+        title.setPadding(showBack ? 0 : Ui.dp(act, 16), 0, 0, 0);
+        viewBtn.setVisibility(general ? View.VISIBLE : View.GONE);
+        banner.setVisibility(general ? View.VISIBLE : View.GONE);
+        tiles.setVisibility(general ? View.VISIBLE : View.GONE);
+        tilePager.setVisibility(general ? View.VISIBLE : View.GONE);
+        list.setVisibility(general ? View.GONE : View.VISIBLE);
+        pager.setVisibility(general ? View.GONE : View.VISIBLE);
+        if (general) {
+            String mode = Config.get("settings.view");
+            viewBtn.setImageResource(PagedView.iconOf(mode));
+            fillBanner();
+            tiles.setMode(mode);
+            tiles.refresh();
+            return;
+        }
         List<Entry> all = entries();
         pager.setPages((all.size() + rowsPerPage - 1) / rowsPerPage);
         list.removeAllViews();
@@ -232,10 +360,6 @@ final class SettingsScreen {
     }
 
     // --- kinds of row --------------------------------------------------------------------
-
-    private Entry section(String title) {
-        return () -> Ui.section(act, title);
-    }
 
     /** Opens a screen of Android's. */
     private Entry link(String title, String summary, Intent intent) {

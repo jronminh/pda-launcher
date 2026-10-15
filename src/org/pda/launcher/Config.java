@@ -31,6 +31,7 @@ public final class Config {
         SCHEMA.put("apps.view", new String[] { "enum", "grid", "details|list|grid" });
         SCHEMA.put("favorites.view", new String[] { "enum", "details", "details|list|grid" });
         SCHEMA.put("files.view", new String[] { "enum", "details", "details|list|grid" });
+        SCHEMA.put("settings.view", new String[] { "enum", "grid", "details|list|grid" });
         SCHEMA.put("note.textSize", new String[] { "enum", "medium", "small|medium|large" });
     }
 

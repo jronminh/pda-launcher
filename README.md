@@ -29,11 +29,14 @@ the storage bar) is always a detailed list.
 **Settings.** Each tab has its own, in its menu (⋮ › *Apps settings*, *Favorites
 settings*, *Files settings*, *Note settings*): the view, the grid size and
 Show/Hide apps, hidden files and storage access, the note's text size; they
-cover the tabs until Back, ‹ or a tab. The **Settings** tab holds the rest: the tab Home opens,
-the default home app, a way into each tab's settings, and shortcuts to
-Android's basic screens (Wi-Fi, Bluetooth, display, sound, battery, storage,
-apps, date, language, developer options, about) with their state where an app
-can read it. From there, *Tabs* opens a tab's settings in place (Back returns).
+cover the tabs until Back, ‹ or a tab. The **Settings** tab, after the Boox
+launcher's settings but smaller, starts with a banner (the device's name, model
+and Android version, battery, storage, the launcher's version) over tiles, a
+grid by default: Launcher (the tab Home opens, the default home app), Apps,
+Favorites, Files and Note open their settings in place (Back returns); Wi-Fi,
+Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
+Location, Security, Accounts, Date & time, Language, Developer, About phone and
+All settings open Android's own screens, nothing hidden.
 
 Back returns to Apps; Home on the home screen opens the tab chosen in Settings
 (Apps by default, on its first page), Home from another app comes back to the
