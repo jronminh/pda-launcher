@@ -21,6 +21,48 @@ and to leave Android's compatibility modes. Not a one-line change:
 - Play also wants an App Bundle (AAB): `aapt2 link --proto-format` and
   bundletool, still without Gradle.
 
+## Built-in viewers
+
+Open the common kinds inside the launcher, in its look (black, paged, line
+icons), instead of handing every file to another app. "Open with…" stays in
+the file's menu, and a setting chooses built-in or the system's app per kind.
+
+- **Text editor:** plain text, .md, .json, .log, .sh, .conf. Open, edit, save
+  (atomically, through FileOps so Favorites and MediaStore follow), find, wrap
+  on/off, a monospace option; refuse files too large to hold (say over 2 MB)
+  and binary ones. Pages instead of scrolling, like the lists.
+- **Image viewer:** one image at a time, sampled to the screen (as Thumbs
+  does, larger), pinch to zoom and pan, a swipe or ‹ › for the next image of
+  the folder or of the media root, rotate, share, delete, details (size,
+  date, dimensions; EXIF taken date if cheap).
+- **Audio player:** MediaPlayer in a foreground service (a notification with
+  play/pause, so it plays on with the screen off), the folder or the Audio
+  root as the queue, cover from the embedded picture, seek bar, sleep timer.
+  Media session for the headset buttons.
+- Later, maybe: video (VideoView), PDF (PdfRenderer, pages fit the paged
+  look well), and archives (zip with java.util.zip: list, extract).
+
+## Network storage
+
+New roots in Files, under the local ones, each a place you add once (address,
+user, password; the password in the app's private storage, never in a log).
+The Files code works on java.io.File today: put a small interface between
+(list, stat, open for read and write, rename, delete, mkdir) with a local and
+a network implementation, and let FileOps copy across them with progress.
+
+- **WebDAV** (Nextcloud, a NAS, `rclone serve webdav`): plain HTTP, doable
+  with HttpURLConnection alone (PROPFIND, GET, PUT, MOVE, DELETE, MKCOL).
+- **SMB** (Windows shares, most NAS): needs a library (jcifs-ng); its jar can
+  be dexed by build.sh with no Gradle.
+- **SFTP** (any SSH server, Termux's sshd on another phone): a library too
+  (JSch or sshj).
+- **FTP:** last, if at all.
+- Open a remote file by copying it to the cache first (with progress), then
+  the viewers or another app read the copy; offer to upload it back if the
+  text editor changed it. Thumbnails only for local files at first.
+- Tailscale is already on this phone, so a NAS or a PC at home is reachable
+  by its tailnet name.
+
 ## Recents
 
 With a third-party home, Recents is One UI Home's (com.sec.android.app.launcher,
