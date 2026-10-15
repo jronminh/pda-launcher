@@ -30,9 +30,13 @@ public final class Viewers {
     public static boolean open(Context c, File f) {
         Class<?> viewer = viewerFor(f);
         if (viewer == null) return false;
-        // Its own task (as an app would be): Home leaves it in Recents, the launcher as it was.
-        c.startActivity(new Intent(c, viewer).putExtra(EXTRA_PATH, f.getAbsolutePath())
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        // Its own task (as an app would be): Home leaves the launcher as it was. Out of
+        // Recents unless asked for (launcher.viewerRecents); either way it leaves
+        // Recents when closed (autoRemoveFromRecents), so files opened leave no trail.
+        Intent i = new Intent(c, viewer).putExtra(EXTRA_PATH, f.getAbsolutePath())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (!Config.getBool("launcher.viewerRecents")) i.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        c.startActivity(i);
         return true;
     }
 

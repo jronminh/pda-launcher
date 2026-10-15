@@ -153,6 +153,9 @@ public class AudioPlayerActivity extends Activity {
         setIntent(intent);
         Viewers.Source s = Viewers.sourceOf(this);
         if (s == null) return;
+        // The track already here, tapped again (the way back when out of Recents): keep playing.
+        if (s.file != null && src != null && s.file.equals(src.file) && files.get(at).equals(s.file)) return;
+        if (s.uri != null && src != null && s.uri.equals(src.uri)) return;
         src = s;
         File f = s.file != null ? s.file : new File(s.name);
         files = s.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));

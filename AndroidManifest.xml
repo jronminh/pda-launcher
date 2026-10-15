@@ -106,23 +106,27 @@
              so Home leaves it in Recents and the launcher as it was. -->
         <activity
             android:name=".viewers.TextEditorActivity"
+            android:autoRemoveFromRecents="true"
             android:label="Text"
             android:taskAffinity="org.pda.launcher.text"
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".viewers.ImageViewerActivity"
+            android:autoRemoveFromRecents="true"
             android:label="Images"
             android:taskAffinity="org.pda.launcher.image"
             android:configChanges="orientation|screenSize" />
         <activity
             android:name=".viewers.AudioPlayerActivity"
+            android:autoRemoveFromRecents="true"
             android:label="Audio"
             android:taskAffinity="org.pda.launcher.audio"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize" />
         <activity
             android:name=".viewers.PdfViewerActivity"
+            android:autoRemoveFromRecents="true"
             android:label="PDF"
             android:taskAffinity="org.pda.launcher.pdf"
             android:configChanges="orientation|screenSize" />
