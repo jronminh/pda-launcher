@@ -6,7 +6,9 @@ A home screen with five tabs on a bar at the bottom (no swiping):
 
 - **Apps**: a grid of launchable apps (4 x 6 by default), one page at a time
   (`‹ 1/3 ›` or a horizontal swipe), with search in the header, under a glance
-  line (the time; the date, the next alarm, the battery). No widgets, no
+  line: the time (tap for the alarms); the date and, if turned on, the next
+  calendar event (tap for the Calendar); the next alarm and the battery, with
+  the time to full while charging (tap for the battery screen). No widgets, no
   wallpaper. Tap to open; long-press for the app's own shortcuts (as the
   default home may read them), then App info, Hide, Uninstall. The grid
   follows installs, removals and suspended apps (`LauncherApps.Callback`). The
@@ -48,7 +50,9 @@ Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
 Location, Security, Accounts, Date & time, Language, Developer and All settings
 open Android's own screens, nothing hidden.
 
-The tab bar shows icons, labels or both (Settings › Launcher › Tab bar). In Files,
+The headers carry no tab title (the tab bar names the tab): a title shows only
+where it tells something, a media root or a selection in Files, Launcher in
+Settings. The tab bar shows icons, labels or both (Settings › Launcher › Tab bar). In Files,
 a selection's actions (Copy, Move, Delete, Share, more) are icons over small
 labels, and so is *Paste here*.
 

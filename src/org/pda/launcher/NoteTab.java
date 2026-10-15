@@ -49,7 +49,7 @@ final class NoteTab {
 
         // The button shows the board's state: open while it can be written, shut when locked.
         lockBtn = Ui.action(act, R.drawable.ic_lock_open, "Lock", v -> setLocked(!locked, true));
-        root.addView(new Header(act, "Note")
+        root.addView(new Header(act, "")
                 .action(lockBtn)
                 .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)))
                 .view());

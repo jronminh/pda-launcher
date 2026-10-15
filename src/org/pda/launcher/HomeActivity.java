@@ -219,6 +219,7 @@ public class HomeActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         if (code == FilesTab.REQUEST_STORAGE) files.onPermissionResult();
+        if (code == Glance.REQUEST_CALENDAR) apps.onCalendarPermission();
     }
 
     private static int tabOf(Intent i, int fallback) {

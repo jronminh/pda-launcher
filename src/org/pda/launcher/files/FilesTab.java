@@ -142,7 +142,7 @@ public final class FilesTab {
         closeBtn = Ui.action(act, R.drawable.ic_close, "End the selection", v -> clearSelection());
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("files.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("files.view"), m -> Config.set(act, "files.view", m)));
-        header = new Header(act, "Files")
+        header = new Header(act, "")
                 .back(this::onBack)
                 .search(q -> {
                     pager.setPage(0);
@@ -438,10 +438,11 @@ public final class FilesTab {
         boolean home = p.mode == Mode.HOME && header.query().isEmpty();
 
         // The header.
+        // The tab bar names the tab and the crumbs a folder: a title only for a
+        // media root (it has no crumbs) and for a selection.
         if (selecting) header.setTitle(selected.size() + " selected");
-        else if (p.mode == Mode.FOLDER) header.setTitle(p.dir.equals(Roots.storage()) ? "Internal storage" : p.dir.getName());
         else if (p.mode == Mode.MEDIA) header.setTitle(p.root.title);
-        else header.setTitle("Files");
+        else header.setTitle("");
         header.showBack(!selecting && history.size() > 1);
         header.setSearchEnabled(!selecting);
         // Recent is newest first by what it is (as DocumentsUI's), so it has no sort.

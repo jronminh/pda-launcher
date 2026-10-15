@@ -103,7 +103,7 @@ final class SettingsScreen {
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("settings.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("settings.view"), m -> Config.set(act, "settings.view", m)));
         sortBtn = Header.sort(act, "settings.sort", "settings.desc", "Default", "Name");
-        header = new Header(act, "Settings")
+        header = new Header(act, "")
                 .back(this::onBack)
                 .search(q -> {
                     tilePager.setPage(0);
@@ -282,7 +282,8 @@ final class SettingsScreen {
 
     private void render() {
         boolean general = GENERAL.equals(scope);
-        header.setTitle(general ? "Settings" : label(scope) + (LAUNCHER.equals(scope) ? "" : " settings"));
+        // The tab bar names the tab; a title says only where inside it one is.
+        header.setTitle(general ? "" : label(scope));
         header.showBack(fromGeneral);
         header.setSearchEnabled(general);
         viewBtn.setVisibility(general ? View.VISIBLE : View.GONE);

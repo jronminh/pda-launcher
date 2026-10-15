@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
@@ -23,7 +22,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,22 +72,7 @@ final class AppsTab {
     private final ImageView viewBtn;
     private final Pager pager;
     private final PagedView list;
-    private final LinearLayout glance;      // time, date, next alarm, battery
-    private final TextView glanceTime, glanceInfo;
-    private int battery = -1;
-    private boolean charging;
-    private final android.content.BroadcastReceiver ticker = new android.content.BroadcastReceiver() {
-        @Override public void onReceive(Context c, Intent i) {
-            if (Intent.ACTION_BATTERY_CHANGED.equals(i.getAction())) {
-                int level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-                int scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
-                battery = level < 0 ? -1 : Math.round(level * 100f / scale);
-                int st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
-                charging = st == android.os.BatteryManager.BATTERY_STATUS_CHARGING;
-            }
-            updateGlance();
-        }
-    };
+    private final Glance glance;   // the time; the date, the next event, the alarm, the battery
     private int generation;   // the newest reload; an older one that finishes late is dropped
 
     /** The system tells a launcher about package changes, suspended apps included. */
@@ -116,7 +99,7 @@ final class AppsTab {
         // The header: search, sort, the view, the menu.
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("apps.view")), "View",
             v -> PagedView.chooseMode(act, v, Config.get("apps.view"), m -> Config.set(act, "apps.view", m)));
-        header = new Header(act, "Apps")
+        header = new Header(act, "")
             .search(q -> {
                 pager.setPage(0);
                 applyFilter();
@@ -127,22 +110,9 @@ final class AppsTab {
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
-        // The glance line: the time, and the date, the next alarm and the battery.
-        glance = new LinearLayout(act);
-        glance.setOrientation(LinearLayout.HORIZONTAL);
-        glance.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        glance.setPadding(Ui.dp(act, 16), Ui.dp(act, 8), Ui.dp(act, 16), Ui.dp(act, 8));
-        glanceTime = new TextView(act);
-        glanceTime.setTextColor(Ui.TEXT);
-        glanceTime.setTextSize(30);
-        glance.addView(glanceTime);
-        glanceInfo = new TextView(act);
-        glanceInfo.setTextColor(Ui.DIM);
-        glanceInfo.setTextSize(13);
-        glanceInfo.setGravity(android.view.Gravity.END);
-        glance.addView(glanceInfo, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        glance.setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
-        root.addView(glance);
+        glance = new Glance(act);
+        glance.view().setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
+        root.addView(glance.view());
 
         list = new PagedView(act, pager);
         list.setBinder(new PagedView.Binder() {
@@ -175,46 +145,20 @@ final class AppsTab {
         launcherApps.unregisterCallback(onPackages);
     }
 
-    /** On screen: the glance line follows the minute, the battery and the alarms. */
+    /** On screen: the glance line follows the minute, the battery, the alarms, the calendar. */
     void onStart() {
-        IntentFilter f = new IntentFilter();
-        f.addAction(Intent.ACTION_TIME_TICK);
-        f.addAction(Intent.ACTION_TIME_CHANGED);
-        f.addAction(Intent.ACTION_TIMEZONE_CHANGED);
-        f.addAction(Intent.ACTION_BATTERY_CHANGED);   // sticky: the current level comes at once
-        f.addAction(android.app.AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED);
-        act.registerReceiver(ticker, f);
-        updateGlance();
+        glance.onStart();
     }
 
     void onStop() {
-        try { act.unregisterReceiver(ticker); } catch (IllegalArgumentException ignore) {}
+        glance.onStop();
     }
 
-    private void updateGlance() {
-        long now = System.currentTimeMillis();
-        glanceTime.setText(android.text.format.DateFormat.getTimeFormat(act).format(new java.util.Date(now)));
-        StringBuilder sb = new StringBuilder(android.text.format.DateUtils.formatDateTime(act, now,
-                android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY | android.text.format.DateUtils.FORMAT_SHOW_DATE
-                        | android.text.format.DateUtils.FORMAT_NO_YEAR | android.text.format.DateUtils.FORMAT_ABBREV_ALL));
-        android.app.AlarmManager am = (android.app.AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
-        android.app.AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
-        StringBuilder second = new StringBuilder();
-        if (alarm != null) {
-            long t = alarm.getTriggerTime();
-            boolean soon = t - now < 24L * 3600 * 1000;   // within a day: the time is enough
-            second.append("Alarm ").append(soon
-                    ? android.text.format.DateFormat.getTimeFormat(act).format(new java.util.Date(t))
-                    : android.text.format.DateUtils.formatDateTime(act, t, android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY
-                            | android.text.format.DateUtils.FORMAT_SHOW_TIME | android.text.format.DateUtils.FORMAT_ABBREV_ALL));
-        }
-        if (battery >= 0) {
-            if (second.length() > 0) second.append("  ·  ");
-            second.append(battery).append('%').append(charging ? " charging" : "");
-        }
-        if (second.length() > 0) sb.append('\n').append(second);
-        glanceInfo.setText(sb);
+    /** The answer to the calendar permission the glance line asked for. */
+    void onCalendarPermission() {
+        glance.onPermission();
     }
+
 
     /** Back: close the search, then go to the first page. Returns true if it did something. */
     boolean onBack() {
@@ -241,7 +185,8 @@ final class AppsTab {
     void onConfig(java.util.Set<String> keys) {
         if (!Config.touches(keys, "apps.")) return;
         applyView();
-        glance.setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
+        glance.view().setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
+        if (Config.touches(keys, "apps.glance")) glance.update();
         applyFilter();   // the order may have changed
     }
 
@@ -259,11 +204,16 @@ final class AppsTab {
         pm.getMenu().add(0, 2, 1, "Columns: " + Config.get("apps.columns") + "  ›");
         pm.getMenu().add(0, 3, 2, "Rows: " + Config.get("apps.rows") + "  ›");
         pm.getMenu().add(0, 4, 3, "Glance line").setChecked(Config.getBool("apps.glance"));
+        if (Config.getBool("apps.glance")) {
+            pm.getMenu().add(0, 5, 4, "Next event").setChecked(
+                    Config.getBool("apps.glanceEvents") && Glance.calendarAllowed(act));
+        }
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: showHideDialog(); break;
                 case 2: PopMenu.choose(act, anchor, "apps.columns"); break;
                 case 4: Config.set(act, "apps.glance", String.valueOf(!Config.getBool("apps.glance"))); break;
+                case 5: glance.setEvents(!(Config.getBool("apps.glanceEvents") && Glance.calendarAllowed(act))); break;
                 default: PopMenu.choose(act, anchor, "apps.rows");
             }
             return true;

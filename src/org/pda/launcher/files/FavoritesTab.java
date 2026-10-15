@@ -62,7 +62,7 @@ public final class FavoritesTab {
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("favorites.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("favorites.view"),
                         m -> Config.set(act, "favorites.view", m)));
-        header = new Header(act, "Favorites")
+        header = new Header(act, "")
                 .search(q -> {
                     pager.setPage(0);
                     show();
