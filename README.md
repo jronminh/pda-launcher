@@ -120,6 +120,10 @@ XML in `res/drawable/` is its output, not to be edited by hand.
 
 ## Build
 
+How the repo is worked on (AOSP first: framework APIs, no Play Services or
+maker APIs, minSdk 26 with guards) is in [AGENTS.md](AGENTS.md).
+
+
 Needs `javac`, Android build-tools (`d8`, `aapt2`, `zipalign`, `apksigner`) and
 `$ANDROID_HOME/platforms/android-31/android.jar`.
 
