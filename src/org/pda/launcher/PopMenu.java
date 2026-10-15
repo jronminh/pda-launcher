@@ -140,24 +140,29 @@ public final class PopMenu {
         boolean inside = recent && touchX >= ax && touchX <= ax + aw && touchY >= ay && touchY <= ay + ah;
         boolean button = aw <= Ui.dp(c, 64) && ah <= Ui.dp(c, 64);
 
-        int x, y, flipTo;
+        int x, y, flipTo, fromX, fromY;   // fromX/Y: where the menu grows from, on screen
         if (inside && !button) {
             // A long press on a row or a cell: open at the finger.
             x = Math.round(touchX);
             y = Math.round(touchY);
             if (x + mw > frame.right - margin) x -= mw;   // the right half opens to the left
             flipTo = y - mh;
+            fromX = Math.round(touchX);
+            fromY = Math.round(touchY);
         } else {
             // A header button: under it, its edge on the side of the screen it is on.
             boolean right = ax + aw / 2 > (frame.left + frame.right) / 2;
             x = right ? ax + aw - mw : ax;
             y = ay + ah;
             flipTo = ay - mh;
+            fromX = ax + aw / 2;
+            fromY = ay + ah / 2;
         }
         if (y + mh > frame.bottom - margin) y = flipTo;   // no room below: above
         x = Math.max(frame.left + margin, Math.min(x, frame.right - margin - mw));
         y = Math.max(frame.top + margin, Math.min(y, frame.bottom - margin - mh));
         w.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y);
+        Anim.popIn(box, Math.max(0, Math.min(mw, fromX - x)), Math.max(0, Math.min(mh, fromY - y)));
     }
 
     private View row(final Item it, final PopupWindow w) {

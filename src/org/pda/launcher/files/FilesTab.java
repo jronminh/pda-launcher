@@ -282,6 +282,7 @@ public final class FilesTab {
         if (header.searching()) { header.closeSearch(); return true; }
         if (history.size() > 1) {
             history.remove(history.size() - 1);
+            list.slideNext(-1);
             pager.setPage(place().page);
             load();
             return true;
@@ -315,6 +316,7 @@ public final class FilesTab {
         if (header.searching()) header.closeSearch();
         place().page = pager.page();
         history.add(p);
+        list.slideNext(1);
         selected.clear();
         pager.setPage(0);
         load();

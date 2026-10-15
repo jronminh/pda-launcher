@@ -37,6 +37,7 @@ public final class Config {
     private static final Map<String, String[]> SCHEMA = new LinkedHashMap<>();
     static {
         SCHEMA.put("launcher.homeTab", new String[] { "enum", "apps", "apps|favorites|files|note|settings" });
+        SCHEMA.put("launcher.animations", new String[] { "bool", "true", "" });
         SCHEMA.put("launcher.tabStyle", new String[] { "enum", "both", "both|icons|labels" });
         SCHEMA.put("apps.columns", new String[] { "int", "4", "3-6" });
         SCHEMA.put("apps.rows", new String[] { "int", "6", "4-8" });

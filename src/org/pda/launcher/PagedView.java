@@ -63,6 +63,8 @@ public final class PagedView extends LinearLayout {
     private int columns = 4;
     private int gridRows;         // 0: as many rows of GRID_CELL_DP as fit
     private int perPage = 1;
+    private int shownPage = -1;   // the page last drawn, to tell a turn from a redraw
+    private int nextDir;          // a slide asked for the next drawing (a folder opened)
     private int height;
     private final GestureDetector flip;
 
@@ -92,6 +94,11 @@ public final class PagedView extends LinearLayout {
     public void setGrid(int columns, int rows) {
         this.columns = Math.max(1, columns);
         this.gridRows = Math.max(0, rows);
+    }
+
+    /** Slide the next drawing in: {@code dir} > 0 from the right (deeper), < 0 from the left (back). */
+    public void slideNext(int dir) {
+        nextDir = dir;
     }
 
     /** The items or the mode changed: count the pages again and draw. */
@@ -150,7 +157,11 @@ public final class PagedView extends LinearLayout {
         removeAllViews();
         if (binder == null || height == 0) return;
         int n = binder.count();
-        int from = pager.page() * perPage;
+        int page = pager.page();
+        int dir = nextDir != 0 ? nextDir : shownPage >= 0 ? page - shownPage : 0;
+        nextDir = 0;
+        shownPage = page;
+        int from = page * perPage;
         int to = Math.min(n, from + perPage);
         if (GRID.equals(mode)) {
             int h = rowHeight();
@@ -166,6 +177,7 @@ public final class PagedView extends LinearLayout {
         } else {
             for (int i = from; i < to; i++) addView(row(i), new LayoutParams(LayoutParams.MATCH_PARENT, rowHeight()));
         }
+        Anim.slideIn(this, dir);
     }
 
     /** DETAILS and LIST: an icon, the title, the summary (DETAILS), the mark. */

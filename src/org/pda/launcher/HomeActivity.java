@@ -188,12 +188,14 @@ public class HomeActivity extends Activity {
 
     void show(int which) {
         if (which == tab) return;
+        boolean first = tab < 0;
         tab = which;
         apps.view().setVisibility(which == APPS ? View.VISIBLE : View.GONE);
         favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
         note.view().setVisibility(which == NOTE ? View.VISIBLE : View.GONE);
         settingsTab.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
+        if (!first) Anim.fadeIn(tabView(which));
         if (which == SETTINGS) settingsTab.onShow();
         else settingsTab.onHide();
         if (which == FAVORITES) favorites.onShow();
@@ -205,6 +207,16 @@ public class HomeActivity extends Activity {
             buttons[i].setAlpha(i == which ? 1f : 0.45f);
             label(i).setTypeface(null, i == which ? android.graphics.Typeface.BOLD
                 : android.graphics.Typeface.NORMAL);
+        }
+    }
+
+    private View tabView(int t) {
+        switch (t) {
+            case FAVORITES: return favorites.view();
+            case FILES: return files.view();
+            case NOTE: return note.view();
+            case SETTINGS: return settingsTab.view();
+            default: return apps.view();
         }
     }
 
@@ -235,6 +247,7 @@ public class HomeActivity extends Activity {
         settings.view().setVisibility(View.VISIBLE);
         settings.view().bringToFront();
         settings.open(scope);
+        Anim.riseIn(settings.view());
     }
 
     private void closeSettings() {
