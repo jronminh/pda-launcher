@@ -6,13 +6,15 @@ A home screen with five tabs on a bar at the bottom (no swiping), named as on
 a Palm: Applications, Briefcase, Files, Today and Prefs. Their order, and which
 show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
 
-- **Applications**: after Pocket PC's Start menu, one page of tiles you choose
-  (in your order, never moved by an install) and a last tile, **More**, for
-  every app, one page at a time (`‹ 1/3 ›` or a horizontal swipe), sorted as
-  you like. Long-press: Add to tiles, Remove from tiles, Move up/down. New
-  apps go only to More, marked • until first opened; the first tiles are the
-  device's default phone, messages, camera, browser, calendar and so on. The
-  search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
+- **Applications**: after Pocket PC's Start menu, in the look of Prefs: one
+  page of tiles, each a need (Phone, Messages, Contacts, Camera, Gallery,
+  Browser, Email, Calendar, Clock, Music, Maps, Calculator, Store) with the
+  launcher's own line icon, opening Android's default app for it or the one
+  you chose (long-press › Opens ›; dim when there is none). ⋮ › Tiles turns
+  them on or off; long-press moves them. The last tile, **More**, lists every
+  app with its own icon, one page at a time (`‹ 1/3 ›` or a swipe), sorted as
+  you like; long-press there › Use for a tile. New apps go only to More,
+  marked • until first opened. The search in the header covers every app. All under a glance line: the time (tap for the alarms); the date (tap for Today) and, if
   turned on, the next calendar event (tap for the Calendar); the next alarm and
   the battery, with the time to full while charging (tap for the battery
   screen). No widgets, no wallpaper. Tap to open; long-press for the app's own

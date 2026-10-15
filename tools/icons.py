@@ -58,6 +58,14 @@ ICONS = {
                 + " M8.2,10.8l7.6,-4.6 M8.2,13.2l7.6,4.6",
     "paste":    "M8,4h-3v17h14v-17h-3 M8,3h8v3h-8z",
     "lock":     "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 8,0v4",
+    # The tiles of Applications: a need each
+    "phone":    "M5,4h4l2,5l-2.5,1.5a11,11 0 0,0 5,5l1.5,-2.5l5,2v4a2,2 0 0,1 -2,2a16,16 0 0,1 -15,-15a2,2 0 0,1 2,-2z",
+    "message":  "M4,5h16v11h-9l-5,4v-4h-2z M8,10.5h0.01 M12,10.5h0.01 M16,10.5h0.01",
+    "camera":   "M3,8h4l2,-3h6l2,3h4v11h-18z " + circle(12, 13, 3.5),
+    "mail":     "M3,6h18v12h-18z M3,6l9,7l9,-7",
+    "clock":    circle(12, 13, 8) + " M12,9v4l2.5,2.5 M5,4l-2,2 M19,4l2,2",
+    "calc":     "M6,3h12v18h-12z M8.5,6h7v3h-7z " + " ".join(dot(x, y) for x in (9, 12, 15) for y in (12.5, 15.5, 18.5)),
+    "store":    "M4,8h16l-1,12h-14z M9,8v-1a3,3 0 0,1 6,0v1",
     # The viewers
     "play":     "M7,5l12,7l-12,7z",
     "pause":    "M7,5h3v14h-3z M14,5h3v14h-3z",

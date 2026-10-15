@@ -33,19 +33,21 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Applications tab, after Pocket PC's Start menu: one page of tiles the
- * user chose, in the user's order, and a last tile, More, for every app (paged,
- * sorted, searched). New apps go only to More, marked • until first opened, so
- * the tiles never change by themselves. The first time, the tiles are the
- * device's default phone, messages, camera, browser and so on. The view (grid,
- * list, details) and the grid's size are shared by both; the search covers
- * every app. Hidden apps (Show/Hide apps) are in neither.
+ * The Applications tab, after Pocket PC's Start menu and in the look of Prefs:
+ * one page of tiles, each a need (Phone, Messages, Camera, Browser...) drawn
+ * with the launcher's own line icon and named by it, opening Android's default
+ * app for that need or the one chosen for the tile; then a last tile, More,
+ * for every app with its own icon (paged, sorted, searched). The tiles are a
+ * fixed list, turned on or off and ordered by the user, so an install never
+ * moves them; new apps go to More, marked • until first opened. The view
+ * (grid, list, details) and the grid's size are shared; the search covers
+ * every app.
  */
 final class AppsTab {
 
     static final String PREFS = "launcher";
     static final String KEY_HIDDEN = "hidden";
-    static final String KEY_TILES = "tiles";       // the tiles' packages, in order, by commas
+    static final String KEY_ROLES = "roles";       // the tiles, in order, "-" before one off
     static final String KEY_OPENED = "opened";     // apps opened since the tiles came (not new any more)
     static final String KEY_SINCE = "tilesSince";  // when the tiles came: an app installed later is new
 
@@ -129,30 +131,42 @@ final class AppsTab {
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return onTiles() ? tileCount() + 1 : shown.size(); }
             @Override public Drawable icon(int i) {
-                return isMore(i) ? act.getDrawable(R.drawable.ic_apps) : shown.get(i).icon;
+                if (isMore(i)) return act.getDrawable(R.drawable.ic_apps);
+                return onTiles() ? act.getDrawable(tiles.get(i).icon) : shown.get(i).icon;
             }
-            @Override public String title(int i) { return isMore(i) ? "More" : shown.get(i).name; }
+            @Override public String title(int i) {
+                if (isMore(i)) return "More";
+                return onTiles() ? tiles.get(i).name : shown.get(i).name;
+            }
             @Override public String summary(int i) {
                 if (isMore(i)) {
                     int n = newCount();
                     return visibleCount() + " apps" + (n > 0 ? " · " + n + " new" : "");
+                }
+                if (onTiles()) {
+                    App a = tileApp.get(tiles.get(i).key);
+                    return a == null ? "Choose an app" : a.name;
                 }
                 App a = shown.get(i);
                 return a.version == null || a.version.isEmpty() ? a.pkg : a.version + " · " + a.pkg;
             }
             @Override public String mark(int i) {
                 if (isMore(i)) return newCount() > 0 ? "•" : null;
-                return isNew(shown.get(i)) ? "•" : null;
+                return !onTiles() && isNew(shown.get(i)) ? "•" : null;
             }
             @Override public boolean highlight(int i) { return false; }
-            @Override public boolean dim(int i) { return false; }
+            @Override public boolean dim(int i) {
+                return onTiles() && !isMore(i) && !tileApp.containsKey(tiles.get(i).key);
+            }
             @Override public void click(int i, View v) {
                 if (isMore(i)) showMore(true);
+                else if (onTiles()) openTile(tiles.get(i), v);
                 else launch(shown.get(i).pkg);
             }
             @Override public boolean longClick(int i, View v) {
                 if (isMore(i)) return false;
-                appMenu(v, shown.get(i));
+                if (onTiles()) tileMenu(v, tiles.get(i));
+                else appMenu(v, shown.get(i));
                 return true;
             }
         });
@@ -210,6 +224,54 @@ final class AppsTab {
 
     // --- the tiles and More ----------------------------------------------------------------
 
+    /** A tile: a need (Phone, Camera...), drawn as Prefs' tiles are, opening an app for it. */
+    static final class Role {
+        final String key, name;
+        final int icon;
+        final Intent intent;   // what the need is, to find Android's default app and the candidates
+
+        Role(String key, String name, int icon, Intent intent) {
+            this.key = key;
+            this.name = name;
+            this.icon = icon;
+            this.intent = intent;
+        }
+    }
+
+    /** Every tile there is, in the first order; standard intents only, so any device answers. */
+    private static List<Role> allRoles() {
+        List<Role> r = new ArrayList<>();
+        r.add(new Role("phone", "Phone", R.drawable.ic_phone, new Intent(Intent.ACTION_DIAL)));
+        r.add(new Role("messages", "Messages", R.drawable.ic_message,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)));
+        r.add(new Role("contacts", "Contacts", R.drawable.ic_account,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CONTACTS)));
+        r.add(new Role("camera", "Camera", R.drawable.ic_camera,
+                new Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)));
+        r.add(new Role("gallery", "Gallery", R.drawable.ic_image,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_GALLERY)));
+        r.add(new Role("browser", "Browser", R.drawable.ic_globe,
+                new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.org")).addCategory(Intent.CATEGORY_BROWSABLE)));
+        r.add(new Role("email", "Email", R.drawable.ic_mail,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_EMAIL)));
+        r.add(new Role("calendar", "Calendar", R.drawable.ic_calendar,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)));
+        r.add(new Role("clock", "Clock", R.drawable.ic_clock, new Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS)));
+        r.add(new Role("music", "Music", R.drawable.ic_audio,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MUSIC)));
+        r.add(new Role("maps", "Maps", R.drawable.ic_location,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MAPS)));
+        r.add(new Role("calculator", "Calculator", R.drawable.ic_calc,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR)));
+        r.add(new Role("store", "Store", R.drawable.ic_store,
+                new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=org.pda.launcher"))));
+        return r;
+    }
+
+    private final List<Role> roles = allRoles();
+    private final List<Role> tiles = new ArrayList<>();       // on, in the user's order, as shown
+    private final Map<String, App> tileApp = new java.util.HashMap<>();   // role key -> the app it opens
+
     /** The tiles are on screen: not in More, not searching. */
     private boolean onTiles() {
         return !more && header.query().isEmpty();
@@ -221,7 +283,7 @@ final class AppsTab {
 
     /** How many of the tiles fit: one page, less the More tile. */
     private int tileCount() {
-        return Math.min(shown.size(), list.perPage() - 1);
+        return Math.min(tiles.size(), list.perPage() - 1);
     }
 
     private void showMore(boolean on) {
@@ -232,16 +294,167 @@ final class AppsTab {
         applyFilter();
     }
 
-    private List<String> tiles() {
-        String s = prefs.getString(KEY_TILES, "");
+    /** The order and the choice, as "phone,messages,-email": a minus is off; a tile not named is on, last. */
+    private List<String> roleOrder() {
         List<String> out = new ArrayList<>();
-        for (String p : s.split(",")) if (!p.isEmpty()) out.add(p);
+        for (String k : prefs.getString(KEY_ROLES, "").split(",")) {
+            String key = k.startsWith("-") ? k.substring(1) : k;
+            if (role(key) != null && !out.contains(k) && !out.contains("-" + key) && !out.contains(key)) out.add(k);
+        }
+        for (Role r : roles) if (!out.contains(r.key) && !out.contains("-" + r.key)) out.add(r.key);
         return out;
     }
 
-    private void saveTiles(List<String> t) {
-        prefs.edit().putString(KEY_TILES, String.join(",", t)).apply();
+    private void saveRoles(List<String> order) {
+        prefs.edit().putString(KEY_ROLES, String.join(",", order)).apply();
         applyFilter();
+    }
+
+    private Role role(String key) {
+        for (Role r : roles) if (r.key.equals(key)) return r;
+        return null;
+    }
+
+    /** The app a tile opens: the one chosen for it, else Android's default for its need; null if none. */
+    private App appFor(Role r, Map<String, App> byPkg) {
+        String chosen = prefs.getString("role." + r.key, null);
+        if (chosen != null && byPkg.containsKey(chosen)) return byPkg.get(chosen);
+        try {
+            android.content.pm.ResolveInfo ri = act.getPackageManager()
+                    .resolveActivity(r.intent, PackageManager.MATCH_DEFAULT_ONLY);
+            // "android" is the chooser: no default yet.
+            if (ri != null && ri.activityInfo != null) return byPkg.get(ri.activityInfo.packageName);
+        } catch (RuntimeException ignore) {}
+        return null;
+    }
+
+    /** The tiles from the order; each with its app (hidden apps open too: the tile is the way to them). */
+    private void buildTiles() {
+        tiles.clear();
+        tileApp.clear();
+        Map<String, App> byPkg = new java.util.HashMap<>();
+        for (App a : all) byPkg.put(a.pkg, a);
+        for (String k : roleOrder()) {
+            if (k.startsWith("-")) continue;
+            Role r = role(k);
+            tiles.add(r);
+            App a = appFor(r, byPkg);
+            if (a != null) tileApp.put(r.key, a);
+        }
+    }
+
+    private void openTile(Role r, View anchor) {
+        App a = tileApp.get(r.key);
+        if (a != null) launch(a.pkg);
+        else chooseApp(r);
+    }
+
+    /** Which app a tile opens: the apps for its need, any app, or Android's default again. */
+    private void chooseApp(Role r) {
+        List<App> cands = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        Map<String, App> byPkg = new java.util.HashMap<>();
+        for (App a : all) byPkg.put(a.pkg, a);
+        for (android.content.pm.ResolveInfo ri : act.getPackageManager().queryIntentActivities(r.intent, 0)) {
+            App a = byPkg.get(ri.activityInfo.packageName);
+            if (a != null && seen.add(a.pkg)) cands.add(a);
+        }
+        Collections.sort(cands, (x, y) -> x.name.compareToIgnoreCase(y.name));
+        final boolean chosen = prefs.contains("role." + r.key);
+        String[] names = new String[cands.size() + (chosen ? 2 : 1)];
+        int n = 0;
+        if (chosen) names[n++] = "Android's default";
+        for (App a : cands) names[n++] = a.name;
+        names[n] = "Another app…";
+        new AlertDialog.Builder(act)
+                .setTitle(r.name + " opens")
+                .setItems(names, (d, which) -> {
+                    if (chosen && which == 0) {
+                        prefs.edit().remove("role." + r.key).apply();
+                        applyFilter();
+                        return;
+                    }
+                    int i = which - (chosen ? 1 : 0);
+                    if (i < cands.size()) setRoleApp(r, cands.get(i).pkg);
+                    else chooseAnyApp(r);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void chooseAnyApp(Role r) {
+        final List<App> apps = new ArrayList<>(all);
+        Collections.sort(apps, (x, y) -> x.name.compareToIgnoreCase(y.name));
+        String[] names = new String[apps.size()];
+        for (int i = 0; i < names.length; i++) names[i] = apps.get(i).name;
+        new AlertDialog.Builder(act)
+                .setTitle(r.name + " opens")
+                .setItems(names, (d, which) -> setRoleApp(r, apps.get(which).pkg))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** {@code pkg} opens the tile, which is turned on if it was off. */
+    private void setRoleApp(Role r, String pkg) {
+        prefs.edit().putString("role." + r.key, pkg).apply();
+        List<String> order = roleOrder();
+        int off = order.indexOf("-" + r.key);
+        if (off >= 0) order.set(off, r.key);
+        saveRoles(order);
+    }
+
+    /** ⋮ › Tiles: which are on (the order is changed on a tile, long-press). */
+    private void tilesDialog() {
+        final List<String> order = roleOrder();
+        String[] names = new String[order.size()];
+        boolean[] on = new boolean[order.size()];
+        for (int i = 0; i < order.size(); i++) {
+            String k = order.get(i);
+            on[i] = !k.startsWith("-");
+            names[i] = role(on[i] ? k : k.substring(1)).name;
+        }
+        new AlertDialog.Builder(act)
+                .setTitle("Tiles")
+                .setMultiChoiceItems(names, on, (d, which, checked) -> on[which] = checked)
+                .setPositiveButton("Done", (d, w) -> {
+                    for (int i = 0; i < order.size(); i++) {
+                        String k = order.get(i), key = k.startsWith("-") ? k.substring(1) : k;
+                        order.set(i, on[i] ? key : "-" + key);
+                    }
+                    saveRoles(order);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Long-press on a tile: its app's shortcuts, then which app, up, down, off. */
+    private void tileMenu(View anchor, Role r) {
+        final App a = tileApp.get(r.key);
+        PopMenu pm = new PopMenu(act, anchor);
+        final List<ShortcutInfo> shortcuts = a == null ? new ArrayList<>() : shortcuts(a.pkg);
+        addShortcuts(pm, shortcuts);
+        final int pos = tiles.indexOf(r);
+        pm.getMenu().add(0, 1, 100, "Opens: " + (a == null ? "nothing yet" : a.name) + "  ›");
+        if (pos > 0) pm.getMenu().add(0, 2, 101, "Move up");
+        if (pos < tileCount() - 1) pm.getMenu().add(0, 3, 102, "Move down");
+        pm.getMenu().add(0, 4, 103, "Turn off");
+        if (a != null) pm.getMenu().add(0, 5, 104, "App info");
+        pm.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() >= 100) {
+                startShortcut(shortcuts.get(item.getItemId() - 100));
+                return true;
+            }
+            List<String> order = roleOrder();
+            switch (item.getItemId()) {
+                case 1: chooseApp(r); break;
+                case 2: Collections.swap(order, order.indexOf(r.key), order.indexOf(tiles.get(pos - 1).key)); saveRoles(order); break;
+                case 3: Collections.swap(order, order.indexOf(r.key), order.indexOf(tiles.get(pos + 1).key)); saveRoles(order); break;
+                case 4: order.set(order.indexOf(r.key), "-" + r.key); saveRoles(order); break;
+                default: start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.pkg)));
+            }
+            return true;
+        });
+        pm.show();
     }
 
     private int visibleCount() {
@@ -264,45 +477,6 @@ final class AppsTab {
         return n;
     }
 
-    /** The first tiles: the device's default app for each common need, those found. */
-    private void firstTiles() {
-        if (prefs.contains(KEY_TILES) || all.isEmpty()) return;
-        PackageManager pm = act.getPackageManager();
-        Intent[] needs = {
-            new Intent(Intent.ACTION_DIAL),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING),
-            new Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA),
-            new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.org")).addCategory(Intent.CATEGORY_BROWSABLE),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR),
-            new Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CONTACTS),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_GALLERY),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_EMAIL),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MUSIC),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MAPS),
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR),
-        };
-        Set<String> have = new HashSet<>();
-        for (App a : all) have.add(a.pkg);
-        List<String> t = new ArrayList<>();
-        String sms = android.provider.Telephony.Sms.getDefaultSmsPackage(act);
-        for (int i = 0; i < needs.length; i++) {
-            String pkg = null;
-            if (i == 1 && sms != null) {
-                pkg = sms;
-            } else {
-                try {
-                    android.content.pm.ResolveInfo r = pm.resolveActivity(needs[i], PackageManager.MATCH_DEFAULT_ONLY);
-                    if (r != null && r.activityInfo != null) pkg = r.activityInfo.packageName;
-                } catch (RuntimeException ignore) {}
-            }
-            // "android" is the chooser: no default for that need.
-            if (pkg != null && have.contains(pkg) && !t.contains(pkg)) t.add(pkg);
-        }
-        prefs.edit().putString(KEY_TILES, String.join(",", t))
-                .putLong(KEY_SINCE, System.currentTimeMillis()).apply();
-    }
-
     /** The settings changed: the view and the grid's size take effect at once. */
     void onConfig(java.util.Set<String> keys) {
         if (!Config.touches(keys, "apps.")) return;
@@ -321,6 +495,7 @@ final class AppsTab {
 
     private void showMenu(View anchor) {
         PopMenu pm = new PopMenu(act, anchor);
+        pm.getMenu().add(0, 6, -1, "Tiles…");
         pm.getMenu().add(0, 1, 0, "Show/Hide apps");
         // The grid's size, in the menu itself: a tab with so few settings needs no screen.
         pm.getMenu().add(0, 2, 1, "Columns: " + Config.get("apps.columns") + "  ›");
@@ -333,6 +508,7 @@ final class AppsTab {
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: showHideDialog(); break;
+                case 6: tilesDialog(); break;
                 case 2: PopMenu.choose(act, anchor, "apps.columns"); break;
                 case 4: Config.set(act, "apps.glance", String.valueOf(!Config.getBool("apps.glance"))); break;
                 case 5: glance.setEvents(!(Config.getBool("apps.glanceEvents") && Glance.calendarAllowed(act))); break;
@@ -369,7 +545,7 @@ final class AppsTab {
                 if (gen != generation) return;
                 all.clear();
                 all.addAll(found);
-                firstTiles();
+                if (!prefs.contains(KEY_SINCE)) prefs.edit().putLong(KEY_SINCE, System.currentTimeMillis()).apply();
                 applyFilter();
             });
         }).start();
@@ -393,13 +569,7 @@ final class AppsTab {
         String q = header.query().toLowerCase(Locale.ROOT);
         Set<String> hidden = hidden();
         if (onTiles()) {
-            // The tiles, in the user's order; one gone or hidden leaves no hole.
-            Map<String, App> byPkg = new java.util.HashMap<>();
-            for (App a : all) byPkg.put(a.pkg, a);
-            for (String p : tiles()) {
-                App a = byPkg.get(p);
-                if (a != null && !hidden.contains(p)) shown.add(a);
-            }
+            buildTiles();
         } else {
             for (App a : all) {
                 if (hidden.contains(a.pkg)) continue;
@@ -446,39 +616,14 @@ final class AppsTab {
     private void appMenu(View anchor, App app) {
         PopMenu pm = new PopMenu(act, anchor);
         final List<ShortcutInfo> shortcuts = shortcuts(app.pkg);
-        for (int i = 0; i < shortcuts.size(); i++) {
-            ShortcutInfo si = shortcuts.get(i);
-            CharSequence label = si.getShortLabel() != null ? si.getShortLabel() : si.getLongLabel();
-            Drawable icon = null;
-            try {
-                icon = launcherApps.getShortcutIconDrawable(si, act.getResources().getDisplayMetrics().densityDpi);
-            } catch (RuntimeException ignore) {}
-            pm.getMenu().add(0, 100 + i, i, String.valueOf(label)).setIcon(icon);
-        }
-        final List<String> t = tiles();
-        final int at = t.indexOf(app.pkg);
-        // Up and down: next to the tile shown before or after it (one gone or hidden is skipped).
-        final int pos = onTiles() ? shown.indexOf(app) : -1;
-        final int prev = pos > 0 ? t.indexOf(shown.get(pos - 1).pkg) : -1;
-        final int next = pos >= 0 && pos < tileCount() - 1 ? t.indexOf(shown.get(pos + 1).pkg) : -1;
-        if (at < 0) {
-            pm.getMenu().add(0, 4, 97, "Add to tiles");
-        } else {
-            pm.getMenu().add(0, 5, 97, "Remove from tiles");
-            if (prev >= 0) pm.getMenu().add(0, 6, 98, "Move up");
-            if (next >= 0) pm.getMenu().add(0, 7, 99, "Move down");
-        }
+        addShortcuts(pm, shortcuts);
+        pm.getMenu().add(0, 4, 99, "Use for a tile  ›");
         pm.getMenu().add(0, 1, 100, "App info");
         pm.getMenu().add(0, 2, 101, "Hide");
         pm.getMenu().add(0, 3, 102, "Uninstall");
         pm.setOnMenuItemClickListener(item -> {
             if (item.getItemId() >= 100) {
-                ShortcutInfo si = shortcuts.get(item.getItemId() - 100);
-                try {
-                    launcherApps.startShortcut(si, null, null);
-                } catch (RuntimeException e) {   // gone, disabled, or the app refuses
-                    android.widget.Toast.makeText(act, "Could not open the shortcut", android.widget.Toast.LENGTH_SHORT).show();
-                }
+                startShortcut(shortcuts.get(item.getItemId() - 100));
                 return true;
             }
             switch (item.getItemId()) {
@@ -492,19 +637,7 @@ final class AppsTab {
                     break;
                 }
                 case 3: start(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg))); break;
-                case 4:
-                    if (shownTiles() >= list.perPage() - 1) {
-                        android.widget.Toast.makeText(act, "The tiles are full: remove one first",
-                                android.widget.Toast.LENGTH_SHORT).show();
-                    } else {
-                        t.add(app.pkg);
-                        saveTiles(t);
-                        android.widget.Toast.makeText(act, "Added to the tiles", android.widget.Toast.LENGTH_SHORT).show();
-                    }
-                    break;
-                case 5: t.remove(app.pkg); saveTiles(t); break;
-                case 6: Collections.swap(t, at, prev); saveTiles(t); break;
-                case 7: Collections.swap(t, at, next); saveTiles(t); break;
+                case 4: useFor(anchor, app); break;
             }
             return true;
         });
@@ -544,14 +677,38 @@ final class AppsTab {
         return out;
     }
 
-    /** The tiles that would show now (installed, not hidden), whatever is on screen. */
-    private int shownTiles() {
-        Set<String> hidden = hidden();
-        Set<String> have = new HashSet<>();
-        for (App a : all) have.add(a.pkg);
-        int n = 0;
-        for (String p : tiles()) if (have.contains(p) && !hidden.contains(p)) n++;
-        return n;
+    /** An app's shortcuts at the top of a menu, ids 100 and on. */
+    private void addShortcuts(PopMenu pm, List<ShortcutInfo> shortcuts) {
+        for (int i = 0; i < shortcuts.size(); i++) {
+            ShortcutInfo si = shortcuts.get(i);
+            CharSequence label = si.getShortLabel() != null ? si.getShortLabel() : si.getLongLabel();
+            Drawable icon = null;
+            try {
+                icon = launcherApps.getShortcutIconDrawable(si, act.getResources().getDisplayMetrics().densityDpi);
+            } catch (RuntimeException ignore) {}
+            pm.getMenu().add(0, 100 + i, i, String.valueOf(label)).setIcon(icon);
+        }
+    }
+
+    private void startShortcut(ShortcutInfo si) {
+        try {
+            launcherApps.startShortcut(si, null, null);
+        } catch (RuntimeException e) {   // gone, disabled, or the app refuses
+            android.widget.Toast.makeText(act, "Could not open the shortcut", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** More, long-press › Use for a tile: which tile opens this app (turned on if off). */
+    private void useFor(View anchor, App app) {
+        PopMenu pm = new PopMenu(act, anchor);
+        for (int i = 0; i < roles.size(); i++) pm.getMenu().add(0, i, i, roles.get(i).name);
+        pm.setOnMenuItemClickListener(item -> {
+            setRoleApp(roles.get(item.getItemId()), app.pkg);
+            android.widget.Toast.makeText(act, roles.get(item.getItemId()).name + " opens " + app.name,
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return true;
+        });
+        pm.show();
     }
 
     private void start(Intent i) {
