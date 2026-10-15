@@ -90,6 +90,43 @@ final class Roots {
                 + MediaStore.Files.FileColumns.MIME_TYPE + " IS NOT NULL", new String[] { like }, SEARCH_MAX);
     }
 
+    /** What shared storage holds, by kind: the bytes and the count of images,
+     *  videos, audio and documents, in that order ({@code [bytes0, count0, ...]}).
+     *  One pass over MediaStore; on a background thread. */
+    static long[] kinds(Context c) {
+        long[] k = new long[8];
+        Uri uri = MediaStore.Files.getContentUri("external");
+        String[] cols = { MediaStore.Files.FileColumns.MEDIA_TYPE, MediaStore.Files.FileColumns.SIZE,
+                MediaStore.Files.FileColumns.MIME_TYPE };
+        try (Cursor cur = c.getContentResolver().query(uri, cols,
+                MediaStore.Files.FileColumns.MIME_TYPE + " IS NOT NULL", null, null)) {
+            if (cur == null) return k;
+            while (cur.moveToNext()) {
+                int kind;
+                switch (cur.getInt(0)) {
+                    case MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE: kind = 0; break;
+                    case MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO: kind = 1; break;
+                    case MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO: kind = 2; break;
+                    default: kind = isDocument(cur.getString(2)) ? 3 : -1;
+                }
+                if (kind < 0) continue;
+                k[kind * 2] += cur.getLong(1);
+                k[kind * 2 + 1]++;
+            }
+        } catch (RuntimeException e) {
+            // no permission, or a provider that refuses: zeros
+        }
+        return k;
+    }
+
+    /** The same kinds as the Documents root's query. */
+    private static boolean isDocument(String m) {
+        return m != null && (m.startsWith("text/") || m.equals("application/pdf") || m.equals("application/msword")
+                || m.equals("application/rtf") || m.equals("application/epub+zip")
+                || m.equals("application/x-mobipocket-ebook") || m.startsWith("application/vnd.ms-")
+                || m.startsWith("application/vnd.openxmlformats-") || m.startsWith("application/vnd.oasis.opendocument."));
+    }
+
     private static String mediaType(int t) {
         return MediaStore.Files.FileColumns.MEDIA_TYPE + " = " + t;
     }

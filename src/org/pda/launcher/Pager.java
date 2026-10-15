@@ -48,6 +48,10 @@ public final class Pager extends LinearLayout {
         return page;
     }
 
+    public int pages() {
+        return pages;
+    }
+
     /** How many pages there are; the current page is kept if it still exists. */
     public void setPages(int n) {
         pages = Math.max(1, n);

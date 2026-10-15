@@ -457,7 +457,7 @@ public final class FilesTab {
 
         // The first screen: how full storage is, over the roots.
         banner.removeAllViews();
-        if (home && !noAccess) banner.addView(storageRow());
+        if (home && !noAccess) banner.addView(storageBanner());
         banner.setVisibility(banner.getChildCount() > 0 ? View.VISIBLE : View.GONE);
 
         // The page.
@@ -481,6 +481,9 @@ public final class FilesTab {
             pasteBtn.setEnabled(here);
             pasteBtn.setAlpha(here ? 1f : 0.3f);
         }
+        // Over a bar (the selection's, the paste one) a single page leaves no empty
+        // page bar: the bar sits right under the list.
+        pager.setVisibility((selecting || showPaste) && pager.pages() <= 1 ? View.GONE : View.VISIBLE);
     }
 
     private void renderCrumbs(Place p) {
@@ -516,12 +519,16 @@ public final class FilesTab {
         return t;
     }
 
-    /** The first row of the first screen: how full shared storage is. */
-    private View storageRow() {
+    // What storage holds by kind (Roots.kinds), counted in the background and kept
+    // between visits; recounted at most every half minute.
+    private static long[] kinds;
+    private static long kindsAt;
+
+    /** The first screen's banner: how full shared storage is, and with what. */
+    private View storageBanner() {
         LinearLayout r = new LinearLayout(act);
         r.setOrientation(LinearLayout.VERTICAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(Ui.dp(act, 16), 0, Ui.dp(act, 16), 0);
+        r.setPadding(Ui.dp(act, 16), Ui.dp(act, 12), Ui.dp(act, 16), Ui.dp(act, 12));
         long total = 0, free = 0;
         try {
             StatFs s = new StatFs(Roots.storage().getPath());
@@ -529,8 +536,8 @@ public final class FilesTab {
             free = s.getAvailableBytes();
         } catch (IllegalArgumentException ignore) {}
         TextView t = new TextView(act);
-        t.setTextColor(Ui.DIM);
-        t.setTextSize(13);
+        t.setTextColor(Ui.TEXT);
+        t.setTextSize(15);
         t.setText(Formatter.formatShortFileSize(act, total - free) + " used of "
                 + Formatter.formatShortFileSize(act, total) + " · "
                 + Formatter.formatShortFileSize(act, free) + " free");
@@ -545,14 +552,39 @@ public final class FilesTab {
         bar.addView(used, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, part));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 4));
         lp.topMargin = Ui.dp(act, 8);
+        lp.bottomMargin = Ui.dp(act, 8);
         r.addView(bar, lp);
-        r.setLayoutParams(rowParams());
+        // By kind: images, videos, audio, documents (sizes and counts).
+        TextView k = new TextView(act);
+        k.setTextColor(Ui.DIM);
+        k.setTextSize(12);
+        k.setText(kinds == null ? "Counting…" : kindsText());
+        r.addView(k);
+        if (kinds == null || android.os.SystemClock.uptimeMillis() - kindsAt > 30_000) {
+            kindsAt = android.os.SystemClock.uptimeMillis();
+            new Thread(() -> {
+                long[] counted = Roots.kinds(act);
+                act.runOnUiThread(() -> {
+                    kinds = counted;
+                    if (k.isAttachedToWindow()) k.setText(kindsText());
+                });
+            }).start();
+        }
         return r;
     }
 
-    private LinearLayout.LayoutParams rowParams() {
-        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, Ui.ROW_DP));
+    private String kindsText() {
+        String[] names = { "Images", "Videos", "Audio", "Documents" };
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 4; i++) {
+            if (i == 2) sb.append('\n');
+            else if (i > 0) sb.append("   ·   ");
+            sb.append(names[i]).append(' ').append(Formatter.formatShortFileSize(act, kinds[i * 2]))
+              .append(" (").append(kinds[i * 2 + 1]).append(')');
+        }
+        return sb.toString();
     }
+
 
     private String summary(Item it) {
         if (it.root != null) {

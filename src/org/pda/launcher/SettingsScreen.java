@@ -116,7 +116,7 @@ final class SettingsScreen {
 
         banner = new LinearLayout(act);
         banner.setOrientation(LinearLayout.VERTICAL);
-        banner.setPadding(Ui.dp(act, 20), Ui.dp(act, 16), Ui.dp(act, 20), Ui.dp(act, 16));
+        banner.setPadding(Ui.dp(act, 16), Ui.dp(act, 10), Ui.dp(act, 16), Ui.dp(act, 10));
         banner.setOnClickListener(v -> start(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)));
         root.addView(banner);
 
@@ -216,8 +216,6 @@ final class SettingsScreen {
         tileList.add(android(R.drawable.ic_calendar, "Date & time", null, Settings.ACTION_DATE_SETTINGS));
         tileList.add(android(R.drawable.ic_globe, "Language", null, Settings.ACTION_LOCALE_SETTINGS));
         tileList.add(android(R.drawable.ic_code, "Developer", null, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
-        tileList.add(android(R.drawable.ic_info, "About phone", () -> "Android " + Build.VERSION.RELEASE,
-                Settings.ACTION_DEVICE_INFO_SETTINGS));
         tileList.add(android(R.drawable.ic_gear, "All settings", null, Settings.ACTION_SETTINGS));
     }
 
@@ -238,46 +236,22 @@ final class SettingsScreen {
 
     /** The banner: the device and the app, at a glance. */
     private void fillBanner() {
+        // Static facts only, kept short so the tiles below have the room. Tap it
+        // for Android's About phone (so no tile for it). Battery and storage live
+        // in their own tiles' details.
         banner.removeAllViews();
         String name = Settings.Global.getString(act.getContentResolver(), Settings.Global.DEVICE_NAME);
         if (name == null || name.isEmpty()) name = Build.MODEL;
         TextView n = new TextView(act);
         n.setText(name);
         n.setTextColor(Ui.TEXT);
-        n.setTextSize(22);
+        n.setTextSize(18);
         banner.addView(n);
-        banner.addView(dim(Build.MANUFACTURER.substring(0, 1).toUpperCase(Locale.ROOT)
-                + Build.MANUFACTURER.substring(1) + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE));
-
-        long total = 0, free = 0;
-        try {
-            StatFs fs = new StatFs(Environment.getExternalStorageDirectory().getPath());
-            total = fs.getTotalBytes();
-            free = fs.getAvailableBytes();
-        } catch (IllegalArgumentException ignore) {}
-        String battery = batteryState();
-        TextView line = dim((battery != null ? "Battery " + battery + "   ·   " : "")
-                + "Storage " + Formatter.formatShortFileSize(act, free) + " free of "
-                + Formatter.formatShortFileSize(act, total));
-        line.setPadding(0, Ui.dp(act, 10), 0, 0);
-        banner.addView(line);
-        // How full the storage is: a white part on a dark line.
-        LinearLayout bar = new LinearLayout(act);
-        bar.setBackgroundColor(Ui.LINE);
-        bar.setWeightSum(1f);
-        View used = new View(act);
-        used.setBackgroundColor(Ui.TEXT);
-        bar.addView(used, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT,
-                total > 0 ? (float) (total - free) / total : 0f));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 4));
-        lp.topMargin = Ui.dp(act, 8);
-        banner.addView(bar, lp);
-
-        TextView app = dim("PDA Launcher " + HomeActivity.versionName(act)
-                + (isDefaultHome() ? " · the home app" : " · not the home app"));
-        app.setPadding(0, Ui.dp(act, 10), 0, 0);
-        banner.addView(app);
+        String maker = Build.MANUFACTURER.substring(0, 1).toUpperCase(Locale.ROOT) + Build.MANUFACTURER.substring(1);
+        banner.addView(dim(maker + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
+                + " · PDA Launcher " + HomeActivity.versionName(act)));
     }
+
 
     private TextView dim(String text) {
         TextView t = new TextView(act);

@@ -23,7 +23,9 @@ that contain the text (at most 200).
 
 ## The screens
 
-- **First screen:** how full storage is (a banner with a bar), over the roots,
+- **First screen:** a banner (how full storage is, with a bar, and the size and
+  count of its images, videos, audio and documents, counted from MediaStore in
+  the background at most every half minute), over the roots,
   shown in the tab's view (details, list or grid).
 - **A folder:** the path as crumbs (each one goes back there), folders first,
   then the sort: name, date modified, size or type (each file is read once for

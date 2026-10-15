@@ -37,13 +37,13 @@ Files has ‹ in its header whenever there is a place to go back to.
 **Settings.** A tab's few options are in its own menu (⋮): Show/Hide apps
 and the grid's columns and rows in Apps, hidden files in Files, the text size in
 Note; the view and the order are the header's buttons. The **Settings** tab,
-after the Boox launcher's settings but smaller, starts with a banner (the
-device's name, model and Android version, battery, storage, the launcher's
-version) over tiles, a grid by default: Launcher (the tab Home opens, the tab
+after the Boox launcher's settings but smaller, starts with a small banner of
+static facts (the device's name, model and Android version, the launcher's
+version; tap it for About phone) over tiles, a grid by default: Launcher (the tab Home opens, the tab
 bar, animations, the default home app) opens in place (Back returns); Wi-Fi,
 Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
-Location, Security, Accounts, Date & time, Language, Developer, About phone and
-All settings open Android's own screens, nothing hidden.
+Location, Security, Accounts, Date & time, Language, Developer and All settings
+open Android's own screens, nothing hidden.
 
 The tab bar shows icons, labels or both (Settings › Launcher › Tab bar). In Files,
 a selection's actions (Copy, Move, Delete, Share, more) are icons over small

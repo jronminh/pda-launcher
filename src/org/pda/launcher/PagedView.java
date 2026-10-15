@@ -233,9 +233,11 @@ public final class PagedView extends LinearLayout {
 
         String mark = binder.mark(i);
         TextView label = text((mark != null ? mark + " " : "") + binder.title(i), Ui.TEXT, 12, TextUtils.TruncateAt.END);
+        // Two lines are always kept for the title, so a one-line title does not
+        // move its icon: the icons of a row stay level.
         label.setSingleLine(false);
-        label.setMaxLines(2);
-        label.setGravity(Gravity.CENTER);
+        label.setLines(2);
+        label.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.TOP);
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = Ui.dp(c, 4);
         cell.addView(label, lp);
