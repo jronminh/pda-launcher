@@ -24,7 +24,10 @@ and to leave Android's compatibility modes. Not a one-line change:
 ## Next features (most useful for the effort first)
 
 Done: app shortcuts on long-press, the glance line over Apps, Share › Show on
-Note.
+Note, the Today tab (calendar, todo.txt, inbox.md, brief.md, the board),
+Capture, Share › Add to Inbox, the tabs' order and which show.
+
+Still for Today: something to write brief.md (Termux, `claude -p` on a schedule).
 
 1. **A trash for Files.** Delete moves to a hidden folder on the same volume
    (a rename, so instant), with where it came from; a Trash root to restore or

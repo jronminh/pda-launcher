@@ -41,10 +41,45 @@
             </intent-filter>
         </activity>
 
-        <!-- Share › Show on Note: text from another app onto the Note tab's board. -->
+        <!-- Capture: an app of its own (a key can open it), a line into the inbox
+             or the tasks. Its own task, so the launcher is left as it was. -->
+        <activity
+            android:name=".CaptureActivity"
+            android:label="Capture"
+            android:icon="@drawable/ic_capture"
+            android:roundIcon="@drawable/ic_capture"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity="org.pda.launcher.capture"
+            android:launchMode="singleTask"
+            android:theme="@style/Capture"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Share › Show on Board: text from another app onto the Today tab's board. -->
         <activity
             android:name=".ShareToNote"
-            android:label="Show on Note"
+            android:label="Show on Board"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- Share › Add to Inbox: a capture in the Today tab's inbox.md. -->
+        <activity
+            android:name=".ShareToInbox"
+            android:label="Add to Inbox"
             android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true"

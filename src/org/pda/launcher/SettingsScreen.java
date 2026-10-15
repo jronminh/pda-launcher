@@ -30,7 +30,7 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
- * The Settings tab, after the Boox launcher's settings but smaller, and hiding
+ * The Prefs tab, after the Boox launcher's settings but smaller, and hiding
  * nothing of Android's: a banner (the device and the app) over tiles, a grid by
  * default (or details, or a list). The Launcher tile opens the launcher's
  * settings here ({@link #LAUNCHER}, a list of rows; Back returns); the others
@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 final class SettingsScreen {
 
     /** What the screen shows: the tiles, or the launcher's settings. */
-    static final String GENERAL = "general", LAUNCHER = "launcher";
+    static final String GENERAL = "general", LAUNCHER = "launcher", TABS = "tabs";
 
     private final Activity act;
     private final LinearLayout root;
@@ -55,6 +55,7 @@ final class SettingsScreen {
     private final List<Tile> shownTiles = new ArrayList<>();   // after the search and the order
     private String scope = GENERAL;
     private boolean fromGeneral;   // a group opened from the tiles: Back returns there
+    private boolean fromLauncher;  // Tabs opened from the Launcher group: Back returns there
 
     private final Config.Listener onConfig = keys -> render();   // it shows the values
 
@@ -164,6 +165,7 @@ final class SettingsScreen {
     /** Show {@code scope} (GENERAL or a group), from the first page. */
     void open(String scope) {
         fromGeneral = false;
+        fromLauncher = false;
         this.scope = scope;
         pager.setPage(0);
         onShow();
@@ -184,6 +186,11 @@ final class SettingsScreen {
      */
     boolean onBack() {
         if (header.searching()) { header.closeSearch(); return true; }
+        if (fromLauncher) {
+            open(LAUNCHER);
+            fromGeneral = true;
+            return true;
+        }
         if (fromGeneral) { open(GENERAL); return true; }
         return false;
     }
@@ -200,7 +207,7 @@ final class SettingsScreen {
     private void buildTiles() {
         // The launcher's own: their settings open here.
         tileList.add(new Tile(R.drawable.ic_home, "Launcher",
-                () -> "Home button: " + label(Config.get("launcher.homeTab")), () -> openGroup(LAUNCHER)));
+                () -> "Home button: " + Tabs.NAMES[Math.max(0, Tabs.idOf(Config.get("launcher.homeTab")))], () -> openGroup(LAUNCHER)));
         // Android's: each opens its screen.
         tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
         tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
@@ -267,12 +274,24 @@ final class SettingsScreen {
         List<Entry> e = new ArrayList<>();
         switch (scope) {
             case LAUNCHER:
-                e.add(choice("launcher.homeTab", "Home button opens"));
+                e.add(choice("launcher.homeTab", "Home button opens", homeChoices()));
+                e.add(() -> new Row("Tabs", tabsSummary(), "›", () -> {
+                    open(TABS);
+                    fromGeneral = true;
+                    fromLauncher = true;
+                }));
                 e.add(toggle("launcher.animations", "Animations"));
                 e.add(choice("launcher.tabStyle", "Tab bar", "both:Icons and labels", "icons:Icons", "labels:Labels"));
                 e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
                         new Intent(Settings.ACTION_HOME_SETTINGS)));
                 e.add(link("App info", "PDA Launcher " + HomeActivity.versionName(act), appDetails()));
+                break;
+            case TABS:
+                // Each tab: tap for on or off, up, down (Prefs stays on: the way back here).
+                for (final int id : Tabs.order()) {
+                    e.add(() -> new Row(Tabs.NAMES[id], null,
+                            id == Tabs.PREFS ? "Always" : Tabs.on(id) ? "On" : "Off", () -> tabMenu(id)));
+                }
                 break;
             default:
                 break;
@@ -305,6 +324,43 @@ final class SettingsScreen {
         rows.clear();
         for (Entry e : entries()) rows.add(e.row());
         list.refresh();
+    }
+
+    /** "key:Name" for each tab, " (off)" after one turned off (Home then opens the first shown). */
+    private static String[] homeChoices() {
+        String[] out = new String[Tabs.count()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = Tabs.KEYS[i] + ":" + Tabs.NAMES[i] + (Tabs.on(i) ? "" : " (off)");
+        }
+        return out;
+    }
+
+    private String tabsSummary() {
+        StringBuilder sb = new StringBuilder();
+        for (int id : Tabs.shown()) {
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(Tabs.NAMES[id]);
+        }
+        return sb.toString();
+    }
+
+    /** A tab's row was tapped: on or off, up, down; opened at the finger. */
+    private void tabMenu(int id) {
+        PopMenu m = new PopMenu(act, list);
+        List<Integer> order = Tabs.order();
+        int at = order.indexOf(id);
+        if (id != Tabs.PREFS) m.add(0, 1, 0, Tabs.on(id) ? "Turn off" : "Turn on");
+        if (at > 0) m.add(0, 2, 1, "Move up");
+        if (at < order.size() - 1) m.add(0, 3, 2, "Move down");
+        m.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1: Tabs.toggle(act, id); break;
+                case 2: Tabs.move(act, id, -1); break;
+                default: Tabs.move(act, id, 1);
+            }
+            return true;
+        });
+        m.show();
     }
 
     // --- kinds of row --------------------------------------------------------------------

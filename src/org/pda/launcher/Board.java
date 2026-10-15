@@ -8,53 +8,34 @@ import android.text.SpannableStringBuilder;
 import android.text.StaticLayout;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 /**
- * The Note tab: a whiteboard. Text only, written anywhere, never scrolled, never
- * saved: what is on it lives as long as the launcher's process (kept in a static
- * field, so a screen made again, for DeX or a new font size, keeps it). The board takes
- * text only while it still fits; when it is full, typing stops. It can be
- * locked, so it only shows what is written (no cursor, no keyboard).
+ * The Today tab's board: a whiteboard. Text only, written anywhere, never
+ * scrolled, never saved: what is on it lives as long as the launcher's process
+ * (kept in a static field, so a screen made again, for DeX or a new font size,
+ * keeps it). It takes text only while it still fits; when it is full, typing
+ * stops. It has no bar of its own: Today's bar is the one on top, and its menu
+ * has Clear and Text size while the board shows.
  */
-final class NoteTab {
+final class Board {
 
     private static final int SMALL = 18, MEDIUM = 26, LARGE = 36;   // sp
 
-    // The board's text and lock outlive the screen, not the process.
+    // The board's text outlives the screen, not the process.
     private static CharSequence kept = "";
-    private static boolean keptLocked;
-    private static NoteTab live;   // the board on screen now, if any
+    private static Board live;   // the board on screen now, if any
 
     private final Activity act;
-    private final LinearLayout root;
-    private final ImageView lockBtn;
     private final EditText board;
-    private boolean locked;
     private long fullToastAt;
 
     private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "note.")) applySize(); };
 
-    NoteTab(Activity act) {
+    Board(Activity act) {
         this.act = act;
-
-        root = new LinearLayout(act);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
-
-        // The button shows the board's state: open while it can be written, shut when locked.
-        lockBtn = Ui.action(act, R.drawable.ic_lock_open, "Lock", v -> setLocked(!locked, true));
-        root.addView(new Header(act, "")
-                .action(lockBtn)
-                .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)))
-                .view());
-        root.addView(Ui.divider(act));
-
         board = new EditText(act);
         board.setBackground(null);
         board.setTextColor(Ui.TEXT);
@@ -73,11 +54,8 @@ final class NoteTab {
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void afterTextChanged(android.text.Editable s) { kept = s.toString(); }
         });
-        root.addView(board, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
         Config.addListener(onConfig);
         applySize();
-        if (keptLocked) setLocked(true, false);
         live = this;
     }
 
@@ -88,7 +66,7 @@ final class NoteTab {
      */
     static void show(String text) {
         kept = text;
-        NoteTab n = live;
+        Board n = live;
         if (n == null) return;   // the next board made starts with it
         InputFilter[] filters = n.board.getFilters();
         n.board.setFilters(new InputFilter[0]);
@@ -97,7 +75,15 @@ final class NoteTab {
     }
 
     View view() {
-        return root;
+        return board;
+    }
+
+    boolean isEmpty() {
+        return board.length() == 0;
+    }
+
+    void clear() {
+        board.setText("");
     }
 
     void onHide() {
@@ -133,39 +119,6 @@ final class NoteTab {
             Toast.makeText(act, "The board is full", Toast.LENGTH_SHORT).show();
         }
         return "";
-    }
-
-    /** Lock or unlock; {@code byUser} raises the keyboard on unlock. */
-    private void setLocked(boolean on, boolean byUser) {
-        locked = on;
-        keptLocked = on;
-        lockBtn.setImageResource(on ? R.drawable.ic_lock : R.drawable.ic_lock_open);
-        lockBtn.setContentDescription(on ? "Unlock" : "Lock");
-        board.setFocusable(!on);
-        board.setFocusableInTouchMode(!on);
-        board.setCursorVisible(!on);
-        board.setLongClickable(!on);
-        board.setHint(on ? null : "Write anything");
-        if (on) {
-            board.clearFocus();
-            hideIme();
-        } else if (byUser) {
-            board.requestFocus();
-            InputMethodManager imm = (InputMethodManager) act.getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.showSoftInput(board, InputMethodManager.SHOW_IMPLICIT);
-        }
-    }
-
-    private void showMenu(View anchor) {
-        PopMenu pm = new PopMenu(act, anchor);
-        pm.getMenu().add(0, 1, 0, "Clear").setEnabled(!locked && board.length() > 0);
-        pm.getMenu().add(0, 2, 1, "Text size  ›");
-        pm.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) board.setText("");
-            else PopMenu.choose(act, anchor, "note.textSize", "Small", "Medium", "Large");
-            return true;
-        });
-        pm.show();
     }
 
     private void applySize() {

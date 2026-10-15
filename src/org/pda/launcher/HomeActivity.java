@@ -15,18 +15,21 @@ import android.widget.TextView;
 import org.pda.launcher.files.FavoritesTab;
 import org.pda.launcher.files.FilesTab;
 
-import java.util.Locale;
+import java.util.List;
 
 /**
- * The home screen: five tabs (Apps, Favorites, Files, Note, Settings) over a tab
- * bar at the bottom. A tab's few options are in its own menu.
+ * The home screen: five tabs (Applications, Briefcase, Files, Today, Prefs; see
+ * {@link Tabs}) over a tab bar at the bottom, in the order and the choice the
+ * user made. A tab's few options are in its own menu.
  */
 public class HomeActivity extends Activity {
 
-    public static final int APPS = 0, FAVORITES = 1, FILES = 2, NOTE = 3, SETTINGS = 4;
-    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Note", "Settings" };
-    private static final int[] ICONS = { R.drawable.ic_apps, R.drawable.ic_star, R.drawable.ic_folder,
-            R.drawable.ic_pencil, R.drawable.ic_gear };
+    // The tabs' ids (Tabs): fixed whatever the order the user chose.
+    public static final int APPS = Tabs.APPS, FAVORITES = Tabs.BRIEFCASE, FILES = Tabs.FILES,
+            TODAY = Tabs.TODAY, SETTINGS = Tabs.PREFS;
+
+    /** An intent extra with EXTRA_TAB = TODAY: the part of Today to show (TodayTab.BOARD...). */
+    public static final String EXTRA_PART = "part";
 
     /** An intent extra: the tab to show. */
     public static final String EXTRA_TAB = "tab";
@@ -34,10 +37,11 @@ public class HomeActivity extends Activity {
     private AppsTab apps;
     private FavoritesTab favorites;
     private FilesTab files;
-    private NoteTab note;
-    private SettingsScreen settingsTab;   // the Settings tab
+    private TodayTab today;
+    private SettingsScreen settingsTab;   // the Prefs tab
     private Config.Listener onConfig;
-    private final LinearLayout[] buttons = new LinearLayout[NAMES.length];   // an icon over a label
+    private final LinearLayout[] buttons = new LinearLayout[Tabs.count()];   // by id: an icon over a label
+    private LinearLayout tabRow;   // the buttons of the tabs shown, in the user's order
     private int tab = -1;
     private boolean stopped = true;   // no screen of ours is showing
     private boolean resumedOnce;
@@ -66,15 +70,14 @@ public class HomeActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.addView(Ui.divider(this));
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        for (int i = 0; i < NAMES.length; i++) {
+        tabRow = new LinearLayout(this);
+        tabRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < Tabs.count(); i++) {
             final int which = i;
-            LinearLayout b = Ui.labeledAction(this, ICONS[i], NAMES[i], v -> show(which));
-            row.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            buttons[i] = b;
+            buttons[i] = Ui.labeledAction(this, Tabs.ICONS[i], Tabs.NAMES[i], v -> show(which));
+            ((TextView) buttons[i].getChildAt(1)).setEllipsize(android.text.TextUtils.TruncateAt.END);
         }
-        bar.addView(row);
+        bar.addView(tabRow);
         root.addView(bar, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         // The cover: the home screen comes back under a black sheet, lifted when
@@ -91,28 +94,37 @@ public class HomeActivity extends Activity {
         frame.addView(cover);
         setContentView(frame);
 
-        apps = new AppsTab(this);
+        apps = new AppsTab(this, () -> open(TODAY));
         favorites = new FavoritesTab(this, dir -> {
             files.openFolder(dir);
             show(FILES);
         });
         files = new FilesTab(this);
-        note = new NoteTab(this);
+        today = new TodayTab(this, dir -> {
+            files.openFolder(dir);
+            show(FILES);
+        });
         settingsTab = new SettingsScreen(this);
         settingsTab.open(SettingsScreen.GENERAL);
         settingsTab.onHide();
         content.addView(apps.view());
         content.addView(favorites.view());
         content.addView(files.view());
-        content.addView(note.view());
+        content.addView(today.view());
         content.addView(settingsTab.view());
         applyTabStyle();
+        buildTabBar();
         onConfig = keys -> {
             apps.onConfig(keys);
             if (keys.contains("launcher.tabStyle")) applyTabStyle();
+            if (keys.contains("launcher.tabs")) {
+                buildTabBar();
+                if (!Tabs.on(tab)) show(Tabs.shown().get(0));
+            }
         };
         Config.addListener(onConfig);
-        show(tabOf(getIntent(), APPS));
+        open(tabOf(getIntent(), homeTab()));
+        showPart(getIntent());
     }
 
     @Override
@@ -122,7 +134,8 @@ public class HomeActivity extends Activity {
         // launcher.homeTab setting. Pressed from another app: the tab that was open.
         int home = homeTab();
         if (!stopped && home == APPS) apps.reset();
-        show(tabOf(intent, stopped ? tab : home));
+        open(tabOf(intent, stopped ? tab : home));
+        showPart(intent);
     }
 
     /** Back from another app or Recents (not the first start): cover the tabs. */
@@ -164,6 +177,7 @@ public class HomeActivity extends Activity {
     protected void onStop() {
         stopped = true;
         apps.onStop();
+        if (tab == TODAY) today.onHide();   // no folder to follow while off screen
         super.onStop();
     }
 
@@ -177,10 +191,14 @@ public class HomeActivity extends Activity {
             appsRead = true;
             apps.reload();
         }
-        // Files reads its place when shown; at the first resume it was just shown.
-        if (tab == FILES && resumedOnce) files.onResume();
-        else if (tab == FAVORITES) favorites.onShow();
-        else if (tab == SETTINGS) settingsTab.onShow();   // Android's state may have changed
+        // Back on screen, a tab reads again what may have changed meanwhile. At the
+        // first resume the tab was just shown (and read), so not twice.
+        if (resumedOnce) {
+            if (tab == FILES) files.onResume();
+            else if (tab == FAVORITES) favorites.onShow();
+            else if (tab == SETTINGS) settingsTab.onShow();   // Android's state may have changed
+            else if (tab == TODAY) today.onShow();   // its files may have changed elsewhere
+        }
         resumedOnce = true;
     }
 
@@ -188,7 +206,7 @@ public class HomeActivity extends Activity {
     protected void onDestroy() {
         Config.removeListener(onConfig);
         settingsTab.onHide();
-        note.onDestroy();
+        today.onDestroy();
         files.onDestroy();
         favorites.onDestroy();
         apps.onDestroy();
@@ -212,40 +230,67 @@ public class HomeActivity extends Activity {
         }
         if (tab == FILES && files.onBack()) return;
         if (tab == FAVORITES && favorites.onBack()) return;
+        if (tab == TODAY && today.onBack()) return;
         if (tab == SETTINGS && settingsTab.onBack()) return;
         show(APPS);
     }
 
     @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
-        if (code == FilesTab.REQUEST_STORAGE) files.onPermissionResult();
-        if (code == Glance.REQUEST_CALENDAR) apps.onCalendarPermission();
+        if (code == FilesTab.REQUEST_STORAGE) {
+            files.onPermissionResult();
+            if (tab == TODAY) today.onShow();
+        }
+        if (code == Glance.REQUEST_CALENDAR) {
+            apps.onCalendarPermission();
+            today.onCalendarPermission();
+        }
+    }
+
+    /** EXTRA_PART: a part of the Today tab to open (Share › Show on Note opens the board). */
+    private void showPart(Intent i) {
+        if (i == null || !i.hasExtra(EXTRA_PART)) return;
+        int p = i.getIntExtra(EXTRA_PART, TodayTab.TODAY);
+        i.removeExtra(EXTRA_PART);
+        if (tab == TODAY) today.show(p);
     }
 
     private static int tabOf(Intent i, int fallback) {
         if (i == null) return fallback;
         int t = i.getIntExtra(EXTRA_TAB, fallback);
         i.removeExtra(EXTRA_TAB);
-        return t >= 0 && t < NAMES.length ? t : fallback;
+        return t >= 0 && t < Tabs.count() ? t : fallback;
+    }
+
+    /** Show a tab asked for by name; a tab turned off says so (and the first shown opens). */
+    private void open(int which) {
+        if (which >= 0 && !Tabs.on(which)) {
+            android.widget.Toast.makeText(this, Tabs.NAMES[which] + " is turned off (Prefs › Launcher › Tabs)",
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+        show(which);
     }
 
     void show(int which) {
+        if (!Tabs.on(which)) which = Tabs.shown().get(0);   // a tab turned off: the first shown
         if (which == tab) return;
         int from = tab;
         tab = which;
         apps.view().setVisibility(which == APPS ? View.VISIBLE : View.GONE);
         favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
-        note.view().setVisibility(which == NOTE ? View.VISIBLE : View.GONE);
+        today.view().setVisibility(which == TODAY ? View.VISIBLE : View.GONE);
+        if (which == TODAY) today.onShow();
         settingsTab.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
         // The new tab slides in from its side of the tab bar.
-        if (from >= 0) Anim.slideIn(tabView(which), which - from);
+        List<Integer> shown = Tabs.shown();
+        if (from >= 0) Anim.slideIn(tabView(which), shown.indexOf(which) - shown.indexOf(from));
         if (which == SETTINGS) settingsTab.onShow();
         else settingsTab.onHide();
         if (which == FAVORITES) favorites.onShow();
         if (which == FILES) files.onShow();
         else files.onHide();
-        if (which != NOTE) note.onHide();
+        if (which != TODAY) today.onHide();
         if (which != FAVORITES) favorites.onHide();
         for (int i = 0; i < buttons.length; i++) {
             buttons[i].setAlpha(i == which ? 1f : 0.45f);
@@ -258,9 +303,17 @@ public class HomeActivity extends Activity {
         switch (t) {
             case FAVORITES: return favorites.view();
             case FILES: return files.view();
-            case NOTE: return note.view();
+            case TODAY: return today.view();
             case SETTINGS: return settingsTab.view();
             default: return apps.view();
+        }
+    }
+
+    /** The tab bar: the tabs shown, in the user's order (Prefs › Launcher › Tabs). */
+    private void buildTabBar() {
+        tabRow.removeAllViews();
+        for (int id : Tabs.shown()) {
+            tabRow.addView(buttons[id], new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         }
     }
 
@@ -278,13 +331,10 @@ public class HomeActivity extends Activity {
         }
     }
 
-    /** The launcher.homeTab setting, as a tab. */
+    /** The launcher.homeTab setting, as a tab; a tab turned off gives the first shown. */
     private static int homeTab() {
-        String want = Config.get("launcher.homeTab");
-        for (int i = 0; i < NAMES.length; i++) {
-            if (NAMES[i].toLowerCase(Locale.ROOT).equals(want)) return i;
-        }
-        return APPS;
+        int id = Tabs.idOf(Config.get("launcher.homeTab"));
+        return id >= 0 && Tabs.on(id) ? id : Tabs.shown().get(0);
     }
 
     static String versionName(Context c) {

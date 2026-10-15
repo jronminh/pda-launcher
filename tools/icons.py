@@ -45,6 +45,11 @@ ICONS = {
     "forward":  "M9,5l7,7l-7,7",
     "close":    "M6,6l12,12 M18,6l-12,12",
     "check":    "M5,12.5l4.5,4.5l9.5,-10",
+    # Today: tasks and the inbox
+    "add":       "M12,5v14 M5,12h14",
+    "task":      circle(12, 12, 8),
+    "task_done": circle(12, 12, 8) + " M8,12.5l3,3l5,-6",
+    "inbox":     "M3,13h5l1.5,3h5l1.5,-3h5 M3,13l3,-8h12l3,8v6h-18z",
     # The selection's actions in Files
     "copy":     "M8,8h12v12h-12z M16,8v-4h-12v12h4",
     "move":     "M3,6h6l2,2h10v11h-18z M8,13.5h8 M13,10.5l3,3l-3,3",
@@ -53,16 +58,14 @@ ICONS = {
                 + " M8.2,10.8l7.6,-4.6 M8.2,13.2l7.6,4.6",
     "paste":    "M8,4h-3v17h14v-17h-3 M8,3h8v3h-8z",
     "lock":     "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 8,0v4",
-    "lock_open": "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 7.7,-1.5",
     # Views
     "view_details": "M4,5h4v4h-4z M11,6h9 M11,8h6 M4,15h4v4h-4z M11,16h9 M11,18h6",
     "view_list":    "M4,6h2 M9,6h11 M4,12h2 M9,12h11 M4,18h2 M9,18h11",
     "view_grid":    "M4,4h6v6h-6z M14,4h6v6h-6z M4,14h6v6h-6z M14,14h6v6h-6z",
+    "briefcase": "M3,8h18v11h-18z M9,8v-3h6v3 M3,13h18 M11,12h2v2h-2z",
     # Settings tiles
     "home":      "M4,11l8,-7l8,7 M6,9v11h12v-11 M10,20v-6h4v6",
     "apps":      " ".join(circle(x, y, 3) for x, y in ((7, 7), (17, 7), (7, 17), (17, 17))),
-    "star":      "M12,3l2.7,5.6l6.1,0.9l-4.4,4.3l1,6.1l-5.4,-2.9l-5.4,2.9l1,-6.1l-4.4,-4.3l6.1,-0.9z",
-    "pencil":    "M4,20l4,-1l11,-11l-3,-3l-11,11z M14,6l3,3",
     "wifi":      "M2,9a15,15 0 0,1 20,0 M5,12.5a10,10 0 0,1 14,0 M8.5,16a5,5 0 0,1 7,0 " + dot(12, 19.5),
     "bluetooth": "M7,7l10,10l-5,4v-18l5,4l-10,10",
     "display":   "M3,4h18v12h-18z M8,20h8 M12,16v4",
@@ -75,7 +78,6 @@ ICONS = {
     "calendar":  "M4,5h16v15h-16z M4,9h16 M8,3v4 M16,3v4",
     "globe":     circle(12, 12, 9) + " M3,12h18 M12,3a14,14 0 0,1 0,18 M12,3a14,14 0 0,0 0,18",
     "code":      "M8,8l-4,4l4,4 M16,8l4,4l-4,4 M14,5l-4,14",
-    "info":      circle(12, 12, 9) + " M12,11v6 " + dot(12, 7.5),
     "gear":      gear(),
 }
 

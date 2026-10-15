@@ -2,64 +2,81 @@
 
 Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0).
 
-A home screen with five tabs on a bar at the bottom (no swiping):
+A home screen with five tabs on a bar at the bottom (no swiping), named as on
+a Palm: Applications, Briefcase, Files, Today and Prefs. Their order, and which
+show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
 
-- **Apps**: a grid of launchable apps (4 x 6 by default), one page at a time
-  (`‹ 1/3 ›` or a horizontal swipe), with search in the header, under a glance
-  line: the time (tap for the alarms); the date and, if turned on, the next
-  calendar event (tap for the Calendar); the next alarm and the battery, with
-  the time to full while charging (tap for the battery screen). No widgets, no
-  wallpaper. Tap to open; long-press for the app's own shortcuts (as the
-  default home may read them), then App info, Hide, Uninstall. The grid
-  follows installs, removals and suspended apps (`LauncherApps.Callback`). The
-  header menu (⋮) has Show/Hide apps and the grid's size.
-- **Favorites**: favourite files and folders, in the order they were added. Tap a
+- **Applications**: a grid of launchable apps (4 x 6 by default), one page at a
+  time (`‹ 1/3 ›` or a horizontal swipe), with search in the header, under a
+  glance line: the time (tap for the alarms); the date (tap for Today) and, if
+  turned on, the next calendar event (tap for the Calendar); the next alarm and
+  the battery, with the time to full while charging (tap for the battery
+  screen). No widgets, no wallpaper. Tap to open; long-press for the app's own
+  shortcuts (as the default home may read them), then App info, Hide,
+  Uninstall. The grid follows installs, removals and suspended apps
+  (`LauncherApps.Callback`). The header menu (⋮) has Show/Hide apps, the grid's
+  size, the glance line and its next event.
+- **Briefcase**: favourite files and folders, in the order they were added. Tap a
   folder to show it in Files, a file to open it; long-press to reorder, show in
-  folder, or remove. Items are added from Files (select, ⋮ › Add to favorites),
+  folder, or remove. Items are added from Files (select, ⋮ › Add to Briefcase),
   and follow the files when Files moves, renames or deletes them.
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
-- **Note**: a whiteboard. Text only, written anywhere, never scrolled and never
-  saved: it lasts as long as the launcher's process (a screen made again, for
-  DeX or a new font size, keeps it). It takes text only while
-  the text fits the board. *Lock* makes it display only (no cursor, no
-  keyboard); ⋮ › Clear empties it. Other apps' Share menus have *Show on Note*,
-  which puts the shared text on the board.
+- **Today**: the PDA's information centre, in four parts:
+  - *Today*: today's calendar, the next alarm, the three most pressing tasks,
+    the inbox, and a brief if something wrote one.
+  - *Tasks*: `todo.txt` (the todo.txt format: `(A)` priorities, `due:` dates);
+    tap to tick, long-press to edit or delete.
+  - *Inbox*: quick captures in `inbox.md`, newest first; one can become a task.
+  - *Board*: a whiteboard, text only, never scrolled and never saved (it lasts
+    as long as the launcher's process); its Clear and Text size are in the
+    tab's menu.
 
-Apps, Favorites and Files each show their items one of three ways, chosen with
+  The files are plain text in one folder (Documents/PDA by default; Today › ⋮),
+  for Syncthing, Termux (todo.sh) or an AI to share, and the tab follows them as
+  they change. **Capture** is a small app of its own (for a key, or a home
+  screen): a line into the inbox or the tasks. Other apps' Share menus have
+  *Add to Inbox* and *Show on Board*.
+- **Prefs**: see below.
+
+Applications, Briefcase and Files each show their items one of three ways, chosen with
 the view button in the header and kept per tab: **Details**
 (icon, name and a line of details), **List** (a small icon and the name) or
-**Grid** (a big icon over the name). Every way turns pages; the Apps grid takes
-its columns and rows from Settings. The Settings tab's tiles have the three
-ways too.
+**Grid** (a big icon over the name). Every way turns pages; the Applications
+grid takes its columns and rows from its menu. The Prefs tab's tiles have the
+three ways too.
 
-Search and sort are in the header of every tab but Note, kept per tab: Apps by
-name, install or update date; Favorites in the order added, or by name, date,
-size, type; Files by name, date, size, type (folders first); Settings' tiles in
+Search and sort are in the header of every tab but Today, kept per tab:
+Applications by name, install or update date; Briefcase in the order added, or
+by name, date, size, type; Files by name, date, size, type (folders first);
+Prefs' tiles in
 their own order or by name. Choosing the current order again turns it round.
 Files has ‹ in its header whenever there is a place to go back to.
 
-**Settings.** A tab's few options are in its own menu (⋮): Show/Hide apps
-and the grid's columns and rows in Apps, hidden files in Files, the text size in
-Note; the view and the order are the header's buttons. The **Settings** tab,
+**Prefs.** A tab's few options are in its own menu (⋮): Show/Hide apps, the
+grid's columns and rows and the glance line in Applications, hidden files in
+Files, the folder in Today, the text size on the Board; the view and the order
+are the header's buttons. The **Prefs** tab,
 after the Boox launcher's settings but smaller, starts with a small banner of
 static facts (the device's name, model and Android version, the launcher's
-version; tap it for About phone) over tiles, a grid by default: Launcher (the tab Home opens, the tab
-bar, animations, the default home app) opens in place (Back returns); Wi-Fi,
+version; tap it for About phone) over tiles, a grid by default: Launcher (the
+tab Home opens, the tabs' order and which show, the tab bar, animations, the
+default home app) opens in place (Back returns); Wi-Fi,
 Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
 Location, Security, Accounts, Date & time, Language, Developer and All settings
 open Android's own screens, nothing hidden.
 
 The headers carry no tab title (the tab bar names the tab): a title shows only
-where it tells something, a media root or a selection in Files, Launcher in
-Settings. The tab bar shows icons, labels or both (Settings › Launcher › Tab bar). In Files,
+where it tells something, a media root or a selection in Files, Launcher or
+Tabs in Prefs. The tab bar shows icons, labels or both (Prefs › Launcher › Tab
+bar). In Files,
 a selection's actions (Copy, Move, Delete, Share, more) are icons over small
 labels, and so is *Paste here*.
 
-Back returns to Apps; Home on the home screen opens the tab chosen in Settings
-(Apps by default, on its first page), Home from another app comes back to the
+Back returns to Applications; Home on the home screen opens the tab chosen in
+Prefs (Applications by default, on its first page), Home from another app comes back to the
 tab that was open. The look is pure black for an OLED screen and flat (inspired
-by the Onyx Boox launcher). Motion is short and optional (Settings › Launcher ›
+by the Onyx Boox launcher). Motion is short and optional (Prefs › Launcher ›
 Animations, on by default): a tab, a page or a folder slides in from its
 side, a menu grows from where it was asked for. The
 system's animator duration scale applies too.
@@ -71,7 +88,7 @@ holds).
 Changes from upstream:
 - Java with framework views only (no Kotlin, no Compose, no Gradle), so it builds with
   `javac` + `d8` + `aapt2` in Termux, same toolchain as `pda-panel`.
-- Tabs, paged grid and lists, Files, Favorites, Note, Settings.
+- Tabs, paged grid and lists, Briefcase, Files, Today, Prefs.
 - Package `org.pda.launcher`, so it can be installed next to the upstream app.
 - `targetSdk 28`, so the Files tab keeps legacy storage (docs/files.md).
 

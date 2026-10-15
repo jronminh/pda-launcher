@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+    <!-- Capture's app icon: as the launcher's, a black disc with a white ring,
+         and an inbox tray inside. -->
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:pathData="M96,4A92,92 0 1,0 96,188A92,92 0 1,0 96,4Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="9"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M48,104h28l8,16h24l8,-16h28 M48,104l16,-40h64l16,40v32h-96z" />
+</vector>

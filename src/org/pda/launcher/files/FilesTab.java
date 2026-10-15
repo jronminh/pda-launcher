@@ -58,7 +58,7 @@ import java.util.Set;
  *
  * <p>Tap opens a folder or a file (in the app that handles it, through
  * {@link FileShare}); long-press starts a selection with Copy, Move, Delete,
- * Share and a menu (Rename, Select all, Show in folder, Add to favorites).
+ * Share and a menu (Rename, Select all, Show in folder, Add to Briefcase).
  * Copied or cut items wait in a bar until they are pasted into a folder.
  */
 public final class FilesTab {
@@ -287,7 +287,7 @@ public final class FilesTab {
         return false;
     }
 
-    /** Show a folder, from another tab (Favorites): the first screen, then the folder. */
+    /** Show a folder, from another tab (Briefcase, Today): the first screen, then the folder. */
     public void openFolder(File dir) {
         if (header.searching()) header.closeSearch();
         history.clear();
@@ -881,7 +881,7 @@ public final class FilesTab {
         m.add(0, 2, 1, "Select all");
         if (one != null && place().mode != Mode.FOLDER) m.add(0, 4, 3, "Show in folder");
         final boolean allFav = favs.containsAll(sel);
-        m.add(0, 5, 4, allFav ? "Remove from favorites" : "Add to favorites");
+        m.add(0, 5, 4, allFav ? "Remove from Briefcase" : "Add to Briefcase");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: rename(one); break;
@@ -890,7 +890,7 @@ public final class FilesTab {
                 case 5:
                     if (allFav) Favorites.remove(act, sel);
                     else Favorites.add(act, sel);
-                    toast(allFav ? "Removed from favorites" : "Added to favorites");
+                    toast(allFav ? "Removed from Briefcase" : "Added to Briefcase");
                     selected.clear();
                     load();
                     break;

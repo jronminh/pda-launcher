@@ -86,7 +86,8 @@ final class AppsTab {
         @Override public void onPackagesUnsuspended(String[] pkgs, UserHandle user) { changed(pkgs); }
     };
 
-    AppsTab(Activity act) {
+    /** {@code openToday} shows the Today tab (the glance line's date opens it). */
+    AppsTab(Activity act, Runnable openToday) {
         this.act = act;
         launcherApps = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
         prefs = act.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -110,7 +111,7 @@ final class AppsTab {
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
-        glance = new Glance(act);
+        glance = new Glance(act, openToday);
         glance.view().setVisibility(Config.getBool("apps.glance") ? View.VISIBLE : View.GONE);
         root.addView(glance.view());
 
@@ -233,10 +234,9 @@ final class AppsTab {
             PackageManager pm = act.getPackageManager();
             List<App> found = new ArrayList<>();
             Set<String> seen = new HashSet<>();
-            String self = act.getPackageName();
             for (LauncherActivityInfo li : launcherApps.getActivityList(null, Process.myUserHandle())) {
                 String pkg = li.getApplicationInfo().packageName;
-                if (!seen.add(pkg) || pkg.equals(self)) continue;
+                if (!seen.add(pkg)) continue;   // the launcher's own: its Capture activity
                 Drawable icon = ICONS.get(pkg);
                 if (icon == null) {
                     icon = li.getIcon(0);
@@ -244,8 +244,6 @@ final class AppsTab {
                 }
                 found.add(new App(pkg, String.valueOf(li.getLabel()), icon, info(pm, pkg)));
             }
-            // The launcher itself has no LAUNCHER category, so add it explicitly.
-            found.add(self(pm, self));
             act.runOnUiThread(() -> {
                 if (gen != generation) return;
                 all.clear();
@@ -263,19 +261,6 @@ final class AppsTab {
         }
     }
 
-    private App self(PackageManager pm, String pkg) {
-        Drawable icon = ICONS.get(pkg);
-        try {
-            if (icon == null) {
-                icon = pm.getApplicationIcon(pkg);
-                ICONS.put(pkg, icon);
-            }
-            return new App(pkg, String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))),
-                icon, info(pm, pkg));
-        } catch (PackageManager.NameNotFoundException e) {
-            return new App(pkg, pkg, icon, null);
-        }
-    }
 
     private Set<String> hidden() {
         return new HashSet<>(prefs.getStringSet(KEY_HIDDEN, Collections.emptySet()));

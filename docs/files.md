@@ -47,7 +47,7 @@ that contain the text (at most 200).
   provider whose process dies: updating the launcher killed Termux that way.
 - Long-press starts a selection: Copy, Move, Delete (after a question), Share, and
   ⋮ with Rename, Select all, Show in folder (outside a folder), Add to or
-  Remove from favorites (a star marks a favourite in the list). Copied or cut items wait in a bar until *Paste here* in a folder.
+  Remove from Briefcase (a star marks what is in it). Copied or cut items wait in a bar until *Paste here* in a folder.
 - ⋮ outside a selection: New folder, Show/Hide hidden files,
   Storage (back to the first screen).
 - Copy, move and delete run one at a time on a background thread
@@ -63,7 +63,7 @@ image itself, a frame of a video, an audio file's embedded cover, an APK's icon,
 and for a folder the first image in it (of its first 200 entries). Two
 background threads decode at about 128 px; the results live only in memory (an
 LRU of 8 MB, keyed by path and date), and a file with none keeps its line icon.
-Files and Favorites show them in every view.
+Files and Briefcase show them in every view.
 
 ## Not done
 

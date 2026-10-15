@@ -30,7 +30,7 @@ import java.util.Date;
  * The glance line over the Apps tab: the time on the left; on the right the
  * date, the next calendar event (if asked for), the next alarm and the battery
  * (with the time to full while charging). Each part opens what it tells of: the
- * time the Clock's alarms, the date and the event the Calendar, the battery
+ * time the Clock's alarms, the date the Today tab, the event the Calendar, the battery
  * Android's battery screen. It follows the minute, the battery, the alarms and
  * the calendar while the launcher is on screen.
  */
@@ -59,7 +59,7 @@ final class Glance {
         }
     };
 
-    Glance(Activity act) {
+    Glance(Activity act, Runnable openToday) {
         this.act = act;
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -75,7 +75,7 @@ final class Glance {
         LinearLayout right = new LinearLayout(act);
         right.setOrientation(LinearLayout.VERTICAL);
         right.setGravity(Gravity.END);
-        date = line(v -> openCalendar(System.currentTimeMillis()));
+        date = line(v -> openToday.run());   // the day in full: the Today tab
         event = line(v -> openCalendar(eventStart > 0 ? eventStart : System.currentTimeMillis()));
         event.setTextColor(Ui.TEXT);
         status = line(v -> start(new Intent(Intent.ACTION_POWER_USAGE_SUMMARY)));

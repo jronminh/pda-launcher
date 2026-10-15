@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The Favorites tab: the files and folders kept in {@link Favorites}, one page
+ * The Briefcase tab: the files and folders kept in {@link Favorites}, one page
  * at a time, as details, a list or a grid, searched by name and sorted (the
  * order they were added, or name, date, size, type). Tap a folder to show it in
  * the Files tab, a file to open it; long-press for Move up and Move down (in
  * the order added), Show in folder and Remove. Items are added from the Files
- * tab (select, then ⋮ › Add to favorites).
+ * tab (select, then ⋮ › Add to Briefcase).
  */
 public final class FavoritesTab {
 
@@ -160,7 +160,7 @@ public final class FavoritesTab {
             FilesTab.sort(shown, by, desc);
         }
         empty.setText(favs.isEmpty()
-                ? "No favorites yet.\n\nIn Files, long-press a file or a folder,\nthen ⋮ › Add to favorites."
+                ? "The Briefcase is empty.\n\nIn Files, long-press a file or a folder,\nthen ⋮ › Add to Briefcase."
                 : "Nothing matches.");
         empty.setVisibility(shown.isEmpty() ? View.VISIBLE : View.GONE);
         list.refresh();
@@ -183,7 +183,7 @@ public final class FavoritesTab {
         if (movable && at > 0) m.add(0, desc ? DOWN : UP, 0, desc ? "Move down" : "Move up");
         if (movable && at < favs.size() - 1) m.add(0, desc ? UP : DOWN, 1, desc ? "Move up" : "Move down");
         if (f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
-        m.add(0, REMOVE, 3, "Remove from favorites");
+        m.add(0, REMOVE, 3, "Remove from Briefcase");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case UP: move(at, desc ? at + 1 : at - 1); break;
