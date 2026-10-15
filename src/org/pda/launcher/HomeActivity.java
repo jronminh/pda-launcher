@@ -38,6 +38,7 @@ public class HomeActivity extends Activity {
 
     static final int COLUMNS = 4;
     static final int VISIBLE_ROWS = 6;
+    static final String PANEL_PACKAGE = "org.pda.panel";
 
     /** Set while the home screen is in the foreground, so the package receiver can reload it. */
     static volatile HomeActivity current;
@@ -114,6 +115,7 @@ public class HomeActivity extends Activity {
         footer.setTextSize(12);
         footer.setPadding(0, pad, 0, pad);
         footer.setText("PDA Launcher " + versionName());
+        footer.setOnClickListener(v -> openPanel());
         root.addView(footer, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -199,6 +201,22 @@ public class HomeActivity extends Activity {
     private void launch(String pkg) {
         Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) return;
+        try {
+            startActivity(i);
+        } catch (ActivityNotFoundException | SecurityException ignored) {
+        }
+    }
+
+    /**
+     * Hide/show apps needs Device Owner, and only the PDA panel holds that.
+     * The footer opens the panel; its "Hide apps" list is under Device Owner.
+     */
+    private void openPanel() {
+        Intent i = getPackageManager().getLaunchIntentForPackage(PANEL_PACKAGE);
+        if (i == null) {
+            android.widget.Toast.makeText(this, "PDA panel is not installed", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         try {
             startActivity(i);
         } catch (ActivityNotFoundException | SecurityException ignored) {
