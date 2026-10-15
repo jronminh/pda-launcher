@@ -57,7 +57,6 @@ ICONS = {
     "share":    circle(18, 5, 2.5) + " " + circle(6, 12, 2.5) + " " + circle(18, 19, 2.5)
                 + " M8.2,10.8l7.6,-4.6 M8.2,13.2l7.6,4.6",
     "paste":    "M8,4h-3v17h14v-17h-3 M8,3h8v3h-8z",
-    "lock":     "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 8,0v4",
     # The tiles of Applications: a need each
     "phone":    "M5,4h4l2,5l-2.5,1.5a11,11 0 0,0 5,5l1.5,-2.5l5,2v4a2,2 0 0,1 -2,2a16,16 0 0,1 -15,-15a2,2 0 0,1 2,-2z",
     "message":  "M4,5h16v11h-9l-5,4v-4h-2z M8,10.5h0.01 M12,10.5h0.01 M16,10.5h0.01",
@@ -77,8 +76,6 @@ ICONS = {
     "pause":    "M7,5h3v14h-3z M14,5h3v14h-3z",
     "prev":     "M18,6l-9,6l9,6z M6,6v12",
     "next":     "M6,6l9,6l-9,6z M18,6v12",
-    "eye":      "M2,12c3,-6 17,-6 20,0c-3,6 -17,6 -20,0z " + circle(12, 12, 3),
-    "info":     circle(12, 12, 9) + " M12,11v6 " + dot(12, 7.5),
     # Views
     "view_details": "M4,5h4v4h-4z M11,6h9 M11,8h6 M4,15h4v4h-4z M11,16h9 M11,18h6",
     "view_list":    "M4,6h2 M9,6h11 M4,12h2 M9,12h11 M4,18h2 M9,18h11",
@@ -91,14 +88,12 @@ ICONS = {
     "bluetooth": "M7,7l10,10l-5,4v-18l5,4l-10,10",
     "display":   "M3,4h18v12h-18z M8,20h8 M12,16v4",
     "sound":     "M4,9h4l5,-4v14l-5,-4h-4z M16,9a4,4 0 0,1 0,6 M18.5,6.5a8,8 0 0,1 0,11",
-    "bell":      "M6,17v-6a6,6 0 0,1 12,0v6l2,2h-16z M10,21h4",
     "battery":   "M3,7h16v10h-16z M19,10h2v4h-2 M6,10h6v4h-6z",
     "package":   "M12,3l8,4.5v9l-8,4.5l-8,-4.5v-9z M4,7.5l8,4.5l8,-4.5 M12,12v9",
     "location":  "M12,21c0,0 -7,-6 -7,-11a7,7 0 0,1 14,0c0,5 -7,11 -7,11z " + circle(12, 10, 2),
     "account":   circle(12, 8, 4) + " M4,21a8,8 0 0,1 16,0",
     "calendar":  "M4,5h16v15h-16z M4,9h16 M8,3v4 M16,3v4",
     "globe":     circle(12, 12, 9) + " M3,12h18 M12,3a14,14 0 0,1 0,18 M12,3a14,14 0 0,0 0,18",
-    "code":      "M8,8l-4,4l4,4 M16,8l4,4l-4,4 M14,5l-4,14",
     "gear":      gear(),
 }
 

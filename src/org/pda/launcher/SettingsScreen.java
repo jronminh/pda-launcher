@@ -208,22 +208,16 @@ final class SettingsScreen {
         // The launcher's own: their settings open here.
         tileList.add(new Tile(R.drawable.ic_home, "Launcher",
                 () -> "Home button: " + Tabs.NAMES[Math.max(0, Tabs.idOf(Config.get("launcher.homeTab")))], () -> openGroup(LAUNCHER)));
-        tileList.add(new Tile(R.drawable.ic_eye, "Viewers", this::viewersSummary, () -> openGroup(VIEWERS)));
         // Android's: each opens its screen.
         tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
         tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
         tileList.add(android(R.drawable.ic_display, "Display", null, Settings.ACTION_DISPLAY_SETTINGS));
         tileList.add(android(R.drawable.ic_sound, "Sound", null, Settings.ACTION_SOUND_SETTINGS));
-        tileList.add(android(R.drawable.ic_bell, "Notifications", null, "android.settings.NOTIFICATION_SETTINGS"));
         tileList.add(android(R.drawable.ic_battery, "Battery", this::batteryState, Intent.ACTION_POWER_USAGE_SUMMARY));
         tileList.add(android(R.drawable.ic_storage, "Storage", this::storageState, Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
         tileList.add(android(R.drawable.ic_package, "Applications", null, Settings.ACTION_APPLICATION_SETTINGS));
-        tileList.add(android(R.drawable.ic_location, "Location", null, Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-        tileList.add(android(R.drawable.ic_lock, "Security", null, Settings.ACTION_SECURITY_SETTINGS));
-        tileList.add(android(R.drawable.ic_account, "Accounts", null, Settings.ACTION_SYNC_SETTINGS));
-        tileList.add(android(R.drawable.ic_calendar, "Date & time", null, Settings.ACTION_DATE_SETTINGS));
-        tileList.add(android(R.drawable.ic_globe, "Language", null, Settings.ACTION_LOCALE_SETTINGS));
-        tileList.add(android(R.drawable.ic_code, "Developer", null, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+        // The rest (notifications, location, security, accounts, date, language,
+        // developer...) is one tap further, in Android's own list: few tiles, each daily.
         tileList.add(android(R.drawable.ic_gear, "All settings", null, Settings.ACTION_SETTINGS));
     }
 
@@ -278,6 +272,11 @@ final class SettingsScreen {
                 e.add(choice("launcher.homeTab", "Home button opens", homeChoices()));
                 e.add(() -> new Row("Tabs", tabsSummary(), "›", () -> {
                     open(TABS);
+                    fromGeneral = true;
+                    fromLauncher = true;
+                }));
+                e.add(() -> new Row("Viewers", viewersSummary(), "›", () -> {
+                    open(VIEWERS);
                     fromGeneral = true;
                     fromLauncher = true;
                 }));

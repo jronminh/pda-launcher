@@ -22,8 +22,8 @@ import java.util.function.Consumer;
 /**
  * A few words asked for, in the app's look (a black card with a thin outline,
  * as {@link Card} and {@link PopMenu}), not Android's dialog: a title, one or
- * more lines, Cancel and an action. It sits in the upper part of the screen so
- * the keyboard never covers it; Enter on the last line is the action.
+ * more lines, Cancel and an action. It sits in the middle of the screen, of
+ * what the keyboard leaves free; Enter on the last line is the action.
  */
 public final class Prompt {
 
@@ -99,9 +99,9 @@ public final class Prompt {
         window.setAnimationStyle(0);
         window.setElevation(0);
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-                | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
-        window.showAtLocation(over, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0,
-                c.getResources().getDisplayMetrics().heightPixels / 8);
+                | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        window.setInputMethodMode(PopupWindow.INPUT_METHOD_NEEDED);
+        window.showAtLocation(over, Gravity.CENTER, 0, 0);
         Anim.popIn(box, width / 2f, 0);
         if (!fields.isEmpty()) {
             EditText first = fields.get(0);

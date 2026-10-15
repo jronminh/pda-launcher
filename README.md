@@ -80,11 +80,11 @@ are the header's buttons. The **Prefs** tab,
 after the Boox launcher's settings but smaller, starts with a small banner of
 static facts (the device's name, model and Android version, the launcher's
 version; tap it for About phone) over tiles, a grid by default: Launcher (the
-tab Home opens, the tabs' order and which show, the tab bar, animations, the
-default home app) opens in place (Back returns); Wi-Fi,
-Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
-Location, Security, Accounts, Date & time, Language, Developer and All settings
-open Android's own screens, nothing hidden.
+tab Home opens, the tabs' order and which show, the viewers, the tab bar,
+animations, the default home app) opens in place (Back returns); Wi-Fi,
+Bluetooth, Display, Sound, Battery, Storage, Applications and All settings
+open Android's own screens: few tiles, each for daily use, and everything
+else one tap further in Android's list, nothing hidden.
 
 The headers carry no tab title (the tab bar names the tab): a title shows only
 where it tells something, a media root or a selection in Files, Launcher or
