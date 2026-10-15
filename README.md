@@ -2,51 +2,52 @@
 
 Fork of [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0).
 
-A home screen with five tabs on a bar at the bottom (no swiping):
+A home screen with four tabs on a bar at the bottom (no swiping):
 
-- **Apps**: a 4 x 6 grid of launchable apps, one page at a time (`‹ 1/3 ›` or a
-  horizontal swipe), with search and Show/Hide apps in the header. No widgets, no
+- **Apps**: a grid of launchable apps (4 x 6 by default), one page at a time
+  (`‹ 1/3 ›` or a horizontal swipe), with search in the header. No widgets, no
   wallpaper. Tap to open; long-press for App info, Hide, Uninstall. The grid
-  follows installs, removals and suspended apps (`LauncherApps.Callback`).
-- **Favorites**: favourite files and folders, in the order they were added
-  (`etc/favorites` in the app's tree, one path per line). Tap a folder to show
-  it in Files, a file to open it; long-press to reorder, show in folder, open a
-  shell there, or remove. Items are added from Files (select, ⋮ › Add to favorites).
+  follows installs, removals and suspended apps (`LauncherApps.Callback`). The
+  header menu (⋮) has Show/Hide apps and **Settings**.
+- **Favorites**: favourite files and folders, in the order they were added. Tap a
+  folder to show it in Files, a file to open it; long-press to reorder, show in
+  folder, or remove. Items are added from Files (select, ⋮ › Add to favorites).
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen.
   See [docs/files.md](docs/files.md).
-- **Shell**: dn-shell's terminal without prefixes: Android's `sh` and toybox on a
-  PTY, with tabs, a key bar, settings as files and an `android` command. See
-  [docs/shell.md](docs/shell.md).
-- **Settings**: the app's settings (launcher, Files, Shell) and shortcuts to
-  Android's basic screens (Wi-Fi, Bluetooth, display, sound, battery, storage,
-  apps, date, language, developer options, about), with their state where an
-  app can read it. The app's settings are the files of the shell's tree, so
-  `config set apps.columns 5` in the Shell tab does the same as the screen.
+- **Note**: a whiteboard. Text only, written anywhere, never scrolled and never
+  saved: it lasts as long as the launcher's process. It takes text only while
+  the text fits the board. *Lock* makes it display only (no cursor, no
+  keyboard); ⋮ › Clear empties it.
+
+Apps, Favorites and Files each show their items one of three ways, chosen with
+the view button in the header (or in Settings) and kept per tab: **Details**
+(icon, name and a line of details), **List** (a small icon and the name) or
+**Grid** (a big icon over the name). Every way turns pages; the Apps grid takes
+its columns and rows from Settings. The first screen of Files (the roots under
+the storage bar) is always a detailed list.
+
+**Settings** (Apps › ⋮) covers the tabs until Back, ‹ or a tab: the Home tab,
+the default home app, Show/Hide apps, the grid size, the view of each tab,
+hidden files, the note's
+text size, and shortcuts to Android's basic screens (Wi-Fi, Bluetooth, display,
+sound, battery, storage, apps, date, language, developer options, about) with
+their state where an app can read it.
 
 Back returns to Apps; Home on the home screen opens the tab chosen in Settings
-(Apps by default, on its first page),
-Home from another app comes back to the tab that was open. The look is pure
-black for an OLED screen, flat, with no animation (inspired by the Onyx Boox
-launcher); the tab bar steps aside while the keyboard is up.
+(Apps by default, on its first page), Home from another app comes back to the
+tab that was open. The look is pure black for an OLED screen, flat, with no
+animation (inspired by the Onyx Boox launcher).
 
-"Show/Hide apps" is in the Apps header menu (⋮). It opens a checklist; unchecked apps are removed from the grid. This is a launcher-only filter
-stored in the launcher's preferences: it does not hide apps system-wide (that needs
-Device Owner, which the PDA panel holds).
+"Show/Hide apps" is a launcher-only filter stored in the launcher's preferences:
+it does not hide apps system-wide (that needs Device Owner, which the PDA panel
+holds).
 
 Changes from upstream:
 - Java with framework views only (no Kotlin, no Compose, no Gradle), so it builds with
   `javac` + `d8` + `aapt2` in Termux, same toolchain as `pda-panel`.
-- Vertical list replaced by a 4-column grid; one screen shows 6 rows, more rows scroll.
-- Show/Hide apps filter (the upstream Play Store build has it; the GitHub source is older).
+- Tabs, paged grid and lists, Files, Favorites, Note, Settings.
 - Package `org.pda.launcher`, so it can be installed next to the upstream app.
-- `targetSdk 28`, the Shell tab's platform contract (docs/shell.md).
-
-Third-party code in the Shell tab (Apache-2.0): `src/jackpal/androidterm/**`,
-`src/com/termoneplus/**` and `res/drawable-nodpi/atari_small_nodpi.png` from
-[TermOnePlus](https://gitlab.com/termapps/termoneplus) (Android Terminal
-Emulator); `src/com/google/ase/Exec.java` and `lib/arm64-v8a/libcom_google_ase_Exec.so`
-from [ConnectBot](https://github.com/connectbot/connectbot). The rest of
-`src/org/pda/launcher/shell` and `assets/tree` comes from dn-shell.
+- `targetSdk 28`, so the Files tab keeps legacy storage (docs/files.md).
 
 ## Build
 

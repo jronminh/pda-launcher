@@ -17,24 +17,15 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.Editable;
-import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.GestureDetector;
-import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.AbsListView;
-import android.widget.BaseAdapter;
 import android.widget.EditText;
-import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
-
-import org.pda.launcher.shell.Config;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,13 +37,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Apps tab: a 4 x 6 grid of launchable apps, one page at a time ("‹ 1/3 ›",
- * or a horizontal swipe), under a header with search and a menu.
+ * The Apps tab: the launchable apps, one page at a time, as a grid (the size in
+ * the settings), a list or a detailed list, under a header with search, the view
+ * button and a menu (Show/Hide apps, Settings).
  */
 final class AppsTab {
 
-    // The grid's size is a setting (apps.columns, apps.rows), read when it changes.
-    private int columns = 4, rows = 6;
     static final String PREFS = "launcher";
     static final String KEY_HIDDEN = "hidden";
 
@@ -63,15 +53,18 @@ final class AppsTab {
         final String pkg;
         final String name;
         final Drawable icon;
+        final String version;
 
-        App(String pkg, String name, Drawable icon) {
+        App(String pkg, String name, Drawable icon, String version) {
             this.pkg = pkg;
             this.name = name;
             this.icon = icon;
+            this.version = version;
         }
     }
 
     private final Activity act;
+    private final Runnable openSettings;
     private final LauncherApps launcherApps;
     private final List<App> all = new ArrayList<>();
     private final List<App> shown = new ArrayList<>();
@@ -79,11 +72,10 @@ final class AppsTab {
     private final LinearLayout root;
     private final TextView title;
     private final EditText search;
-    private final GridView grid;
+    private final ImageView viewBtn;
     private final Pager pager;
-    private final BaseAdapter adapter;
+    private final PagedView list;
     private String query = "";
-    private int cellHeight;
     private int generation;   // the newest reload; an older one that finishes late is dropped
 
     /** The system tells a launcher about package changes, suspended apps included. */
@@ -97,8 +89,9 @@ final class AppsTab {
         @Override public void onPackagesUnsuspended(String[] pkgs, UserHandle user) { changed(pkgs); }
     };
 
-    AppsTab(Activity act) {
+    AppsTab(Activity act, Runnable openSettings) {
         this.act = act;
+        this.openSettings = openSettings;
         launcherApps = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
         prefs = act.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
@@ -129,56 +122,32 @@ final class AppsTab {
         titleBox.addView(title);
         titleBox.addView(search, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        viewBtn = Ui.action(act, PagedView.iconOf(Config.get("apps.view")), "View",
+            v -> PagedView.chooseMode(act, v, Config.get("apps.view"), m -> Config.set(act, "apps.view", m)));
         root.addView(Ui.header(act, titleBox,
             Ui.action(act, android.R.drawable.ic_menu_search, "Search", v -> toggleSearch()),
+            viewBtn,
             Ui.textAction(act, "⋮", v -> showMenu(v))));
         root.addView(Ui.divider(act));
 
-        GestureDetector flip = new GestureDetector(act, new GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
-                if (a == null || Math.abs(vx) < Math.abs(vy) * 1.5f) return false;
-                return pager.turn(vx < 0 ? 1 : -1);
+        pager = new Pager(act);
+        list = new PagedView(act, pager);
+        list.setBinder(new PagedView.Binder() {
+            @Override public int count() { return shown.size(); }
+            @Override public Drawable icon(int i) { return shown.get(i).icon; }
+            @Override public String title(int i) { return shown.get(i).name; }
+            @Override public String summary(int i) {
+                App a = shown.get(i);
+                return a.version == null || a.version.isEmpty() ? a.pkg : a.version + " · " + a.pkg;
             }
+            @Override public String mark(int i) { return null; }
+            @Override public boolean highlight(int i) { return false; }
+            @Override public boolean dim(int i) { return false; }
+            @Override public void click(int i, View v) { launch(shown.get(i).pkg); }
+            @Override public boolean longClick(int i, View v) { appMenu(v, shown.get(i)); return true; }
         });
-        // A horizontal fling turns the page. The detector sees the touch before the
-        // cells do, and a fling cancels the cell's tap.
-        grid = new GridView(act) {
-            @Override public boolean dispatchTouchEvent(MotionEvent e) {
-                if (flip.onTouchEvent(e)) {
-                    MotionEvent cancel = MotionEvent.obtain(e);
-                    cancel.setAction(MotionEvent.ACTION_CANCEL);
-                    super.dispatchTouchEvent(cancel);
-                    cancel.recycle();
-                    return true;
-                }
-                return super.dispatchTouchEvent(e);
-            }
-        };
-        columns = Config.getInt("apps.columns");
-        rows = Config.getInt("apps.rows");
-        grid.setNumColumns(columns);
-        grid.setVerticalSpacing(0);
-        grid.setHorizontalSpacing(0);
-        grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
-        grid.setVerticalScrollBarEnabled(false);
-        grid.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        grid.setSelector(android.R.color.transparent);
-        adapter = new Adapter();
-        pager = new Pager(act);   // before the grid asks the adapter for its count
-        pager.setListener(p -> adapter.notifyDataSetChanged());
-        // Six rows fill the grid. The window resizes for the keyboard (the Shell tab
-        // needs that): while searching the cells keep their size and the grid scrolls.
-        grid.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            int h = grid.getHeight() / rows;
-            if (h > 0 && h != cellHeight && search.getVisibility() != View.VISIBLE) {
-                cellHeight = h;
-                adapter.notifyDataSetChanged();
-            }
-        });
-        grid.setAdapter(adapter);
-        root.addView(grid, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
+        applyView();
+        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(pager, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -201,7 +170,7 @@ final class AppsTab {
         }
         if (pager.page() > 0) {
             pager.setPage(0);
-            adapter.notifyDataSetChanged();
+            list.refresh();
             return true;
         }
         return false;
@@ -212,6 +181,19 @@ final class AppsTab {
         closeSearch();
         pager.setPage(0);
         applyFilter();
+    }
+
+    /** The settings changed: the view and the grid's size take effect at once. */
+    void onConfig() {
+        applyView();
+        list.refresh();
+    }
+
+    private void applyView() {
+        String mode = Config.get("apps.view");
+        viewBtn.setImageResource(PagedView.iconOf(mode));
+        list.setMode(mode);
+        list.setGrid(Config.getInt("apps.columns"), Config.getInt("apps.rows"));
     }
 
     private void toggleSearch() {
@@ -231,30 +213,15 @@ final class AppsTab {
         title.setVisibility(View.VISIBLE);
     }
 
-    private int perPage() {
-        return columns * rows;
-    }
-
-    /** The settings changed: a new grid size takes effect at once. */
-    void onConfig() {
-        int c = Config.getInt("apps.columns"), r = Config.getInt("apps.rows");
-        if (c == columns && r == rows) return;
-        columns = c;
-        rows = r;
-        grid.setNumColumns(columns);
-        cellHeight = 0;   // the layout listener measures again
-        grid.requestLayout();
-        applyFilter();
-    }
-
-    private int pages() {
-        return Math.max(1, (shown.size() + perPage() - 1) / perPage());
-    }
-
     private void showMenu(View anchor) {
         PopupMenu pm = new PopupMenu(act, anchor);
-        pm.getMenu().add("Show/Hide apps");
-        pm.setOnMenuItemClickListener(item -> { showHideDialog(); return true; });
+        pm.getMenu().add(0, 1, 0, "Show/Hide apps");
+        pm.getMenu().add(0, 2, 1, "Settings");
+        pm.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) showHideDialog();
+            else openSettings.run();
+            return true;
+        });
         pm.show();
     }
 
@@ -267,7 +234,8 @@ final class AppsTab {
     void reload() {
         final int gen = ++generation;
         new Thread(() -> {
-            List<App> list = new ArrayList<>();
+            PackageManager pm = act.getPackageManager();
+            List<App> found = new ArrayList<>();
             Set<String> seen = new HashSet<>();
             String self = act.getPackageName();
             for (LauncherActivityInfo li : launcherApps.getActivityList(null, Process.myUserHandle())) {
@@ -278,31 +246,39 @@ final class AppsTab {
                     icon = li.getIcon(0);
                     ICONS.put(pkg, icon);
                 }
-                list.add(new App(pkg, String.valueOf(li.getLabel()), icon));
+                found.add(new App(pkg, String.valueOf(li.getLabel()), icon, version(pm, pkg)));
             }
             // The launcher itself has no LAUNCHER category, so add it explicitly.
-            list.add(self(self));
-            Collections.sort(list, (a, b) -> a.name.compareToIgnoreCase(b.name));
+            found.add(self(pm, self));
+            Collections.sort(found, (a, b) -> a.name.compareToIgnoreCase(b.name));
             act.runOnUiThread(() -> {
                 if (gen != generation) return;
                 all.clear();
-                all.addAll(list);
+                all.addAll(found);
                 applyFilter();
             });
         }).start();
     }
 
-    private App self(String pkg) {
-        PackageManager pm = act.getPackageManager();
+    private static String version(PackageManager pm, String pkg) {
+        try {
+            return pm.getPackageInfo(pkg, 0).versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    private App self(PackageManager pm, String pkg) {
         Drawable icon = ICONS.get(pkg);
         try {
             if (icon == null) {
                 icon = pm.getApplicationIcon(pkg);
                 ICONS.put(pkg, icon);
             }
-            return new App(pkg, String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))), icon);
+            return new App(pkg, String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))),
+                icon, version(pm, pkg));
         } catch (PackageManager.NameNotFoundException e) {
-            return new App(pkg, pkg, icon);
+            return new App(pkg, pkg, icon, null);
         }
     }
 
@@ -318,17 +294,13 @@ final class AppsTab {
             if (hidden.contains(a.pkg)) continue;
             if (q.isEmpty() || a.name.toLowerCase(Locale.ROOT).contains(q)) shown.add(a);
         }
-        pager.setPages(pages());
-        adapter.notifyDataSetChanged();
+        list.refresh();
     }
 
     private void launch(String pkg) {
         Intent i = act.getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) return;
-        try {
-            act.startActivity(i);
-        } catch (ActivityNotFoundException | SecurityException ignored) {
-        }
+        start(i);
     }
 
     /** Long-press on an app. */
@@ -388,50 +360,5 @@ final class AppsTab {
             })
             .setNegativeButton("Cancel", null)
             .show();
-    }
-
-    private int dp(int v) {
-        return Ui.dp(act, v);
-    }
-
-    /** The apps of the current page; one cell is an icon above a single-line label. */
-    private final class Adapter extends BaseAdapter {
-        @Override public int getCount() {
-            return Math.max(0, Math.min(perPage(), shown.size() - pager.page() * perPage()));
-        }
-        @Override public Object getItem(int position) { return shown.get(pager.page() * perPage() + position); }
-        @Override public long getItemId(int position) { return shown.get(pager.page() * perPage() + position).pkg.hashCode(); }
-
-        // Cells are built fresh: reusing convertView left some labels blank.
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            final App app = shown.get(pager.page() * perPage() + position);
-            LinearLayout cell = new LinearLayout(act);
-            cell.setOrientation(LinearLayout.VERTICAL);
-            cell.setGravity(Gravity.CENTER);
-            cell.setPadding(dp(4), dp(4), dp(4), dp(4));
-
-            ImageView icon = new ImageView(act);
-            icon.setImageDrawable(app.icon);
-            cell.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
-
-            TextView label = new TextView(act);
-            label.setText(app.name);
-            label.setTextColor(Ui.TEXT);
-            label.setSingleLine(true);
-            label.setEllipsize(TextUtils.TruncateAt.END);
-            label.setGravity(Gravity.CENTER);
-            label.setTextSize(12);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = dp(4);
-            cell.addView(label, lp);
-
-            cell.setOnClickListener(v -> launch(app.pkg));
-            cell.setOnLongClickListener(v -> { appMenu(v, app); return true; });
-            cell.setLayoutParams(new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                cellHeight > 0 ? cellHeight : dp(96)));
-            return cell;
-        }
     }
 }

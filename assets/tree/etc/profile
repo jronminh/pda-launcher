@@ -1,9 +1,0 @@
-# pda-launcher profile -- shipped, replaced when the app is updated; do not edit.
-# The launcher sources it once, before the session's command. The app has set
-# HOME, PATH, TERM, DN_INSTDIR and TMPDIR; everything else belongs here.
-"$DN_INSTDIR/bin/storage" setup 2>/dev/null
-# Your own additions go in etc/profile.d/*.sh (run in filename order).
-for f in "$DN_INSTDIR"/etc/profile.d/*.sh; do
-  [ -r "$f" ] && . "$f"
-done
-unset f

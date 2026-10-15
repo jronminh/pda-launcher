@@ -38,16 +38,15 @@ that contain the text (at most 200).
   (`files/FileShare.java`, in place of androidx's FileProvider); only files under
   shared storage are served.
 - Long-press starts a selection: Copy, Move, Delete (after a question), Share, and
-  ⋮ with Rename, Select all, Open shell here (a folder), Show in folder (outside
-  a folder). Copied or cut items wait in a bar until *Paste here* in a folder.
-- ⋮ outside a selection: New folder, Open shell here, Show/Hide hidden files,
+  ⋮ with Rename, Select all, Show in folder (outside a folder), Add to or
+  Remove from favorites (a star marks a favourite in the list). Copied or cut items wait in a bar until *Paste here* in a folder.
+- ⋮ outside a selection: New folder, Show/Hide hidden files,
   Storage (back to the first screen).
 - Copy, move and delete run one at a time on a background thread
   (`files/FileOps.java`, after DocumentsUI's CopyJob, MoveJob, DeleteJob). A
   taken name gets ` (1)`, ` (2)`...; a move on one volume is a rename; a symlink
   is copied and deleted as a link; a folder cannot go inside itself. Every
   changed path goes to the media scanner, so the media roots follow.
-- *Open shell here* opens a new Shell tab whose shell starts in that folder.
 
 ## Not done
 

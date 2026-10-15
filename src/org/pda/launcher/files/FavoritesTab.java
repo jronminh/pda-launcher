@@ -1,15 +1,19 @@
 package org.pda.launcher.files;
 
 import android.app.Activity;
+import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.Menu;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
+import org.pda.launcher.Config;
+import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
 import org.pda.launcher.Ui;
 
@@ -20,27 +24,28 @@ import java.util.List;
 
 /**
  * The Favorites tab: the files and folders kept in {@link Favorites}, in the
- * order they were added, one page at a time. Tap a folder to show it in the
- * Files tab, a file to open it; long-press for Move up, Move down, Show in
- * folder, Open shell here and Remove. Items are added from the Files tab
- * (select, then ⋮ › Add to favorites), or by editing {@code etc/favorites}.
+ * order they were added, one page at a time, as details, a list or a grid. Tap
+ * a folder to show it in the Files tab, a file to open it; long-press for Move
+ * up, Move down, Show in folder and Remove. Items are added from the Files tab
+ * (select, then ⋮ › Add to favorites).
  */
 public final class FavoritesTab {
 
     /** What the tab asks of the launcher. */
     public interface Host {
         void openFolder(File dir);
-
-        void openShellAt(File dir);
     }
 
     private final Activity act;
     private final Host host;
     private final LinearLayout root;
-    private final LinearLayout list;
+    private final ImageView viewBtn;
     private final Pager pager;
+    private final PagedView list;
+    private final TextView empty;
     private List<File> favs = new ArrayList<>();
-    private int rowsPerPage = 8;
+
+    private final Config.Listener onConfig = this::applyView;
 
     public FavoritesTab(Activity act, Host host) {
         this.act = act;
@@ -49,84 +54,74 @@ public final class FavoritesTab {
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        root.addView(Ui.header(act, Ui.title(act, "Favorites"), Ui.textAction(act, "⋮", v -> showMenu(v))));
+        viewBtn = Ui.action(act, PagedView.iconOf(Config.get("favorites.view")), "View",
+                v -> PagedView.chooseMode(act, v, Config.get("favorites.view"),
+                        m -> Config.set(act, "favorites.view", m)));
+        root.addView(Ui.header(act, Ui.title(act, "Favorites"), viewBtn, Ui.textAction(act, "⋮", v -> showMenu(v))));
         root.addView(Ui.divider(act));
 
-        android.view.GestureDetector flip = new android.view.GestureDetector(act,
-                new android.view.GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
-                if (a == null || Math.abs(vx) < Math.abs(vy) * 1.5f) return false;
-                return pager.turn(vx < 0 ? 1 : -1);
-            }
-        });
-        list = new LinearLayout(act) {
-            @Override public boolean dispatchTouchEvent(MotionEvent e) {
-                if (flip.onTouchEvent(e)) {
-                    MotionEvent cancel = MotionEvent.obtain(e);
-                    cancel.setAction(MotionEvent.ACTION_CANCEL);
-                    super.dispatchTouchEvent(cancel);
-                    cancel.recycle();
-                    return true;
-                }
-                return super.dispatchTouchEvent(e);
-            }
-        };
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int rows = Math.max(1, (b - t) / Ui.dp(act, Ui.ROW_DP));
-            if (b - t > 0 && rows != rowsPerPage) {
-                rowsPerPage = rows;
-                list.post(this::render);
-            }
-        });
-        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
         pager = new Pager(act);
-        pager.setListener(p -> render());
+        list = new PagedView(act, pager);
+        list.setBinder(new PagedView.Binder() {
+            @Override public int count() { return favs.size(); }
+            @Override public Drawable icon(int i) { return act.getDrawable(FilesTab.iconOf(favs.get(i))); }
+            @Override public String title(int i) {
+                File f = favs.get(i);
+                return f.getName().isEmpty() ? f.getPath() : f.getName();
+            }
+            @Override public String summary(int i) { return FilesTab.describe(act, favs.get(i), true); }
+            @Override public String mark(int i) { return null; }
+            @Override public boolean highlight(int i) { return false; }
+            @Override public boolean dim(int i) { return !favs.get(i).exists(); }
+            @Override public void click(int i, View v) { tap(favs.get(i)); }
+            @Override public boolean longClick(int i, View v) { itemMenu(v, favs.get(i)); return true; }
+        });
+
+        // The empty message sits over the list when there is nothing to show.
+        FrameLayout body = new FrameLayout(act);
+        body.addView(list);
+        empty = new TextView(act);
+        empty.setText("No favorites yet.\n\nIn Files, long-press a file or a folder,\nthen ⋮ › Add to favorites.");
+        empty.setTextColor(Ui.DIM);
+        empty.setGravity(Gravity.CENTER_HORIZONTAL);
+        empty.setPadding(0, Ui.dp(act, 48), 0, 0);
+        body.addView(empty);
+        root.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(pager);
+
+        Config.addListener(onConfig);
+        applyView();
     }
 
     public View view() {
         return root;
     }
 
-    /** On screen: read the list again (the Files tab or the shell may have changed it). */
+    /** On screen: read the list again (the Files tab may have changed it). */
     public void onShow() {
         favs = Favorites.load(act);
-        render();
+        empty.setVisibility(favs.isEmpty() ? View.VISIBLE : View.GONE);
+        list.refresh();
     }
 
     /** Back goes to the first page first. */
     public boolean onBack() {
         if (pager.page() == 0) return false;
         pager.setPage(0);
-        render();
+        list.refresh();
         return true;
     }
 
-    private void render() {
-        pager.setPages((favs.size() + rowsPerPage - 1) / rowsPerPage);
-        list.removeAllViews();
-        if (favs.isEmpty()) {
-            TextView t = new TextView(act);
-            t.setText("No favorites yet.\n\nIn Files, long-press a file or a folder,\nthen ⋮ › Add to favorites.");
-            t.setTextColor(Ui.DIM);
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(0, Ui.dp(act, 48), 0, 0);
-            list.addView(t);
-            return;
-        }
-        int from = pager.page() * rowsPerPage;
-        for (int i = from; i < Math.min(favs.size(), from + rowsPerPage); i++) {
-            final File f = favs.get(i);
-            View r = Ui.row(act, FilesTab.iconOf(f),
-                    f.getName().isEmpty() ? f.getPath() : f.getName(),
-                    FilesTab.describe(act, f, true), null, false);
-            if (!f.exists()) r.setAlpha(0.4f);
-            r.setOnClickListener(v -> tap(f));
-            r.setOnLongClickListener(v -> { itemMenu(v, f); return true; });
-            list.addView(r);
-        }
+    public void onDestroy() {
+        Config.removeListener(onConfig);
+    }
+
+    private void applyView() {
+        String mode = Config.get("favorites.view");
+        viewBtn.setImageResource(PagedView.iconOf(mode));
+        list.setMode(mode);
+        list.setGrid(4, 0);
+        list.refresh();
     }
 
     private void tap(File f) {
@@ -136,21 +131,19 @@ public final class FavoritesTab {
     }
 
     private void itemMenu(View anchor, final File f) {
-        final int UP = 1, DOWN = 2, SHOW = 3, SHELL = 4, REMOVE = 5;
+        final int UP = 1, DOWN = 2, SHOW = 3, REMOVE = 4;
         final int at = favs.indexOf(f);
         PopupMenu pm = new PopupMenu(act, anchor);
         Menu m = pm.getMenu();
         if (at > 0) m.add(0, UP, 0, "Move up");
         if (at < favs.size() - 1) m.add(0, DOWN, 1, "Move down");
         if (f.getParentFile() != null && f.getParentFile().isDirectory()) m.add(0, SHOW, 2, "Show in folder");
-        if (f.isDirectory()) m.add(0, SHELL, 3, "Open shell here");
-        m.add(0, REMOVE, 4, "Remove from favorites");
+        m.add(0, REMOVE, 3, "Remove from favorites");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case UP: move(at, at - 1); break;
                 case DOWN: move(at, at + 1); break;
                 case SHOW: host.openFolder(f.getParentFile()); break;
-                case SHELL: host.openShellAt(f); break;
                 case REMOVE:
                     Favorites.remove(act, Collections.singletonList(f));
                     onShow();
@@ -164,10 +157,7 @@ public final class FavoritesTab {
     private void move(int from, int to) {
         Collections.swap(favs, from, to);
         Favorites.save(act, favs);
-        // Follow the item if it crossed a page.
-        pager.setPages((favs.size() + rowsPerPage - 1) / rowsPerPage);
-        pager.setPage(to / rowsPerPage);
-        render();
+        list.refresh();
     }
 
     private void showMenu(View anchor) {

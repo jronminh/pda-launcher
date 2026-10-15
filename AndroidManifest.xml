@@ -1,18 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.pda.launcher"
-    android:versionCode="2"
-    android:versionName="2.0">
+    android:versionCode="3"
+    android:versionName="3.0">
 
-    <!-- targetSdk 28 is the platform contract of the Shell tab: an app that targets
-         29+ may not exec files from its own data directory (docs/shell.md). -->
+    <!-- targetSdk 28 keeps legacy storage for the Files tab: the whole of shared
+         storage through java.io.File with the plain storage permission. From 30
+         on that needs "All files access" (docs/files.md). -->
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="28" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- The Files tab: the whole of shared storage through java.io.File (legacy
-         storage, kept while the app targets 28/29), and opening an .apk. -->
+    <!-- The Files tab: shared storage, and opening an .apk. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -33,18 +30,13 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:stateNotNeeded="true"
-            android:windowSoftInputMode="stateUnspecified|adjustResize">
+            android:windowSoftInputMode="stateUnspecified|adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".shell.ShellService"
-            android:exported="false"
-            android:stopWithTask="false" />
 
         <provider
             android:name=".files.FileShare"

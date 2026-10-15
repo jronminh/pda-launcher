@@ -15,51 +15,50 @@ import android.widget.TextView;
 
 import org.pda.launcher.files.FavoritesTab;
 import org.pda.launcher.files.FilesTab;
-import org.pda.launcher.shell.Config;
-import org.pda.launcher.shell.ShellTab;
 
-import java.io.File;
 import java.util.Locale;
 
-/** The home screen: five tabs over a tab bar at the bottom. */
+/**
+ * The home screen: four tabs (Apps, Favorites, Files, Note) over a tab bar at the
+ * bottom, and the Settings screen, opened from the Apps menu over the tabs.
+ */
 public class HomeActivity extends Activity {
 
-    public static final int APPS = 0, FAVORITES = 1, FILES = 2, SHELL = 3, SETTINGS = 4;
-    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Shell", "Settings" };
+    public static final int APPS = 0, FAVORITES = 1, FILES = 2, NOTE = 3;
+    private static final String[] NAMES = { "Apps", "Favorites", "Files", "Note" };
 
-    /** An intent extra: the tab to show (the shell's notification asks for SHELL). */
+    /** An intent extra: the tab to show. */
     public static final String EXTRA_TAB = "tab";
 
     private AppsTab apps;
-    private ShellTab shell;
-    private FilesTab files;
     private FavoritesTab favorites;
-    private SettingsTab settings;
+    private FilesTab files;
+    private NoteTab note;
+    private SettingsScreen settings;
     private Config.Listener onConfig;
-    private FrameLayout content;
     private final TextView[] buttons = new TextView[NAMES.length];
     private int tab = -1;
+    private boolean settingsOpen;
     private boolean stopped = true;   // no screen of ours is showing
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // The settings are files in the shell's tree, and every tab reads them.
         Config.prepare(this);
         if (getActionBar() != null) getActionBar().hide();
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
 
-        final LinearLayout root = new LinearLayout(this);
+        LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        content = new FrameLayout(this);
+        FrameLayout content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // The tab bar: flat, a line over the open tab.
-        final LinearLayout bar = new LinearLayout(this);
+        // The tab bar: flat, the open tab in bold.
+        LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
         bar.addView(Ui.divider(this));
         LinearLayout row = new LinearLayout(this);
@@ -73,7 +72,7 @@ public class HomeActivity extends Activity {
             b.setSingleLine(true);
             b.setTextColor(Ui.TEXT);
             b.setPadding(0, dp(this, 14), 0, dp(this, 14));
-            b.setOnClickListener(v -> show(which));
+            b.setOnClickListener(v -> { closeSettings(); show(which); });
             row.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             buttons[i] = b;
         }
@@ -82,35 +81,20 @@ public class HomeActivity extends Activity {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
 
-        // While the keyboard is up the tab bar steps aside, so the shell's key bar
-        // sits right on the keyboard. The window resizes for it (adjustResize).
-        root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            android.graphics.Rect r = new android.graphics.Rect();
-            root.getWindowVisibleDisplayFrame(r);
-            int screen = root.getRootView().getHeight();
-            boolean ime = screen - r.bottom > screen / 4;
-            int want = ime ? View.GONE : View.VISIBLE;
-            if (bar.getVisibility() != want) bar.setVisibility(want);
+        apps = new AppsTab(this, this::openSettings);
+        favorites = new FavoritesTab(this, dir -> {
+            files.openFolder(dir);
+            show(FILES);
         });
-
-        apps = new AppsTab(this);
-        shell = new ShellTab(this);
-        files = new FilesTab(this, this::openShellAt);
-        favorites = new FavoritesTab(this, new FavoritesTab.Host() {
-            @Override public void openFolder(File dir) {
-                files.openFolder(dir);
-                show(FILES);
-            }
-            @Override public void openShellAt(File dir) {
-                HomeActivity.this.openShellAt(dir);
-            }
-        });
-        settings = new SettingsTab(this, apps::showHideDialog);
+        files = new FilesTab(this);
+        note = new NoteTab(this);
+        settings = new SettingsScreen(this, apps::showHideDialog, this::closeSettings);
         content.addView(apps.view());
         content.addView(favorites.view());
         content.addView(files.view());
-        content.addView(shell.view());
+        content.addView(note.view());
         content.addView(settings.view());
+        settings.view().setVisibility(View.GONE);
         onConfig = apps::onConfig;
         Config.addListener(onConfig);
         show(tabOf(getIntent(), APPS));
@@ -121,6 +105,7 @@ public class HomeActivity extends Activity {
         super.onNewIntent(intent);
         // Home pressed while the launcher is already on screen: the tab of the
         // launcher.homeTab setting. Pressed from another app: the tab that was open.
+        if (!stopped) closeSettings();
         int home = homeTab();
         if (!stopped && home == APPS) apps.reset();
         show(tabOf(intent, stopped ? tab : home));
@@ -141,39 +126,32 @@ public class HomeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        ShellTab.setVisible(true);
         apps.reload();
-        shell.onResume();
-        if (tab == FILES) files.onResume();
-        if (tab == FAVORITES) favorites.onShow();
-        if (tab == SETTINGS) settings.onShow();   // Android's state may have changed
-    }
-
-    @Override
-    protected void onPause() {
-        ShellTab.setVisible(false);
-        shell.onPause();
-        super.onPause();
+        if (settingsOpen) settings.onShow();   // Android's state may have changed
+        else if (tab == FILES) files.onResume();
+        else if (tab == FAVORITES) favorites.onShow();
     }
 
     @Override
     protected void onDestroy() {
         Config.removeListener(onConfig);
         settings.onHide();
+        note.onDestroy();
+        files.onDestroy();
+        favorites.onDestroy();
         apps.onDestroy();
-        shell.onDestroy();
         super.onDestroy();
     }
 
     @Override
     public void onBackPressed() {
+        if (settingsOpen) { settings.onBack(); return; }
         if (tab == APPS) {
             if (!apps.onBack()) super.onBackPressed();
             return;
         }
         if (tab == FILES && files.onBack()) return;
         if (tab == FAVORITES && favorites.onBack()) return;
-        if (tab == SETTINGS && settings.onBack()) return;
         show(APPS);
     }
 
@@ -195,15 +173,11 @@ public class HomeActivity extends Activity {
         apps.view().setVisibility(which == APPS ? View.VISIBLE : View.GONE);
         favorites.view().setVisibility(which == FAVORITES ? View.VISIBLE : View.GONE);
         files.view().setVisibility(which == FILES ? View.VISIBLE : View.GONE);
-        shell.view().setVisibility(which == SHELL ? View.VISIBLE : View.GONE);
-        settings.view().setVisibility(which == SETTINGS ? View.VISIBLE : View.GONE);
+        note.view().setVisibility(which == NOTE ? View.VISIBLE : View.GONE);
         if (which == FAVORITES) favorites.onShow();
-        if (which == SETTINGS) settings.onShow();
-        else settings.onHide();
-        if (which == SHELL) shell.onShow();
-        else shell.onHide();
         if (which == FILES) files.onShow();
         else files.onHide();
+        if (which != NOTE) note.onHide();
         for (int i = 0; i < buttons.length; i++) {
             buttons[i].setAlpha(i == which ? 1f : 0.45f);
             buttons[i].setTypeface(null, i == which ? android.graphics.Typeface.BOLD
@@ -211,9 +185,19 @@ public class HomeActivity extends Activity {
         }
     }
 
-    private void openShellAt(File dir) {
-        shell.openAt(dir.getPath());
-        show(SHELL);
+    /** Settings covers the tabs; the tab bar stays, and any tab closes it. */
+    private void openSettings() {
+        settingsOpen = true;
+        settings.view().setVisibility(View.VISIBLE);
+        settings.view().bringToFront();
+        settings.onShow();
+    }
+
+    private void closeSettings() {
+        if (!settingsOpen) return;
+        settingsOpen = false;
+        settings.view().setVisibility(View.GONE);
+        settings.onHide();
     }
 
     /** The launcher.homeTab setting, as a tab. */

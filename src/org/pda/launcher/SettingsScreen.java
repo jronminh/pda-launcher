@@ -23,30 +23,26 @@ import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.Toast;
 
-import org.pda.launcher.shell.Config;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * The Settings tab: the app's settings and shortcuts to the basic Android ones,
- * one page at a time.
- *
- * <p>The app's settings are the files of the shell's tree ({@code etc/}, described
- * by {@code lib/config.schema}). This screen writes them through {@link Config#set}
- * (the {@code config} command), so the same settings can be read and changed from
- * the Shell tab: {@code config set apps.columns 5}. Android's settings are not
- * the app's to change: their rows show the state and open the system screen.
+ * The Settings screen, opened from the Apps menu: the app's settings
+ * ({@link Config}) and shortcuts to the basic Android ones, one page at a time.
+ * Android's settings are not the app's to change: their rows show the state
+ * where an app can read it, and open the system screen.
  */
-final class SettingsTab {
+final class SettingsScreen {
 
     private final Activity act;
     private final Runnable showHideApps;
+    private final Runnable close;
     private final LinearLayout root;
     private final LinearLayout list;
     private final Pager pager;
     private int rowsPerPage = 8;
+    private static final String[] VIEWS = { "details:Details", "list:List", "grid:Grid" };
 
     private final Config.Listener onConfig = this::render;
 
@@ -55,14 +51,24 @@ final class SettingsTab {
         View view();
     }
 
-    SettingsTab(Activity act, Runnable showHideApps) {
+    SettingsScreen(Activity act, Runnable showHideApps, Runnable close) {
         this.act = act;
         this.showHideApps = showHideApps;
+        this.close = close;
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        root.addView(Ui.header(act, Ui.title(act, "Settings")));
+        // The header: ‹ (back to the tab it came from), then the title.
+        LinearLayout titleBox = new LinearLayout(act);
+        titleBox.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.TextView back = Ui.textAction(act, "‹", v -> close.run());
+        back.setTextSize(28);
+        titleBox.addView(back);
+        titleBox.addView(Ui.title(act, "Settings"));
+        LinearLayout header = Ui.header(act, titleBox);
+        header.setPadding(0, 0, Ui.dp(act, 4), 0);
+        root.addView(header);
         root.addView(Ui.divider(act));
 
         android.view.GestureDetector flip = new android.view.GestureDetector(act,
@@ -112,11 +118,9 @@ final class SettingsTab {
         Config.removeListener(onConfig);
     }
 
-    boolean onBack() {
-        if (pager.page() == 0) return false;
-        pager.setPage(0);
-        render();
-        return true;
+    /** Back closes the screen, as ‹ does. */
+    void onBack() {
+        close.run();
     }
 
     // --- the list ------------------------------------------------------------------------
@@ -128,20 +132,20 @@ final class SettingsTab {
         e.add(link("Default home app", isDefaultHome() ? "PDA Launcher" : "Another app",
                 new Intent(Settings.ACTION_HOME_SETTINGS)));
         e.add(action("Show/Hide apps", "Which apps the Apps tab lists", showHideApps));
+        e.add(choice("apps.view", "Apps view", VIEWS));
         e.add(number("apps.columns", "App grid columns"));
         e.add(number("apps.rows", "App grid rows"));
 
+        e.add(section("Favorites"));
+        e.add(choice("favorites.view", "Favorites view", VIEWS));
+
         e.add(section("Files"));
+        e.add(choice("files.view", "Files view", VIEWS));
         e.add(toggle("files.showHidden", "Show hidden files"));
         e.add(link("Storage access", storageGranted() ? "Allowed" : "Not allowed", appDetails()));
 
-        e.add(section("Shell"));
-        e.add(number("terminal.fontSize", "Font size"));
-        e.add(choice("terminal.keybarHeight", "Key bar size", "1:Small", "2:Normal", "3:Large"));
-        e.add(toggle("ui.keepScreenOn", "Keep the screen on"));
-        e.add(number("shell.maxSessions", "Most tabs open at once"));
-        e.add(number("terminal.scrollback", "Scrollback lines"));
-        e.add(text("shell.command", "Command a new tab runs"));
+        e.add(section("Note"));
+        e.add(choice("note.textSize", "Text size"));
 
         e.add(section("Android"));
         e.add(link("Wi-Fi", wifiState(), new Intent(Settings.ACTION_WIFI_SETTINGS)));
@@ -263,18 +267,6 @@ final class SettingsTab {
                     f.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
                     ask(title, f, () -> set(key, f.getText().toString().trim()));
                 }
-            });
-            return r;
-        };
-    }
-
-    private Entry text(String key, String title) {
-        return () -> {
-            String cur = Config.get(key);
-            View r = Ui.row(act, 0, title, cur, "›", false);
-            r.setOnClickListener(v -> {
-                EditText f = field(cur);
-                ask(title, f, () -> set(key, f.getText().toString()));
             });
             return r;
         };

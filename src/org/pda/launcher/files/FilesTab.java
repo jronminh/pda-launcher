@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
@@ -19,15 +20,14 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
-import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.Menu;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -35,10 +35,11 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.pda.launcher.PagedView;
 import org.pda.launcher.Pager;
 import org.pda.launcher.R;
 import org.pda.launcher.Ui;
-import org.pda.launcher.shell.Config;
+import org.pda.launcher.Config;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -61,15 +62,10 @@ import java.util.Set;
  *
  * <p>Tap opens a folder or a file (in the app that handles it, through
  * {@link FileShare}); long-press starts a selection with Copy, Move, Delete,
- * Share and a menu (Rename, Select all, Open shell here, Show in folder).
+ * Share and a menu (Rename, Select all, Show in folder, Add to favorites).
  * Copied or cut items wait in a bar until they are pasted into a folder.
  */
 public final class FilesTab {
-
-    /** What the tab asks of the launcher. */
-    public interface Host {
-        void openShellAt(File dir);
-    }
 
     public static final int REQUEST_STORAGE = 41;
 
@@ -109,7 +105,6 @@ public final class FilesTab {
     private static boolean clipMove;
 
     private final Activity act;
-    private final Host host;
     private final SharedPreferences prefs;
     private final Handler main = new Handler(Looper.getMainLooper());
 
@@ -119,7 +114,9 @@ public final class FilesTab {
     private final View searchBtn, sortBtn, moreBtn, closeBtn;
     private final HorizontalScrollView crumbScroll;
     private final LinearLayout crumbs;
-    private final LinearLayout list;
+    private final PagedView list;
+    private final LinearLayout overlay;   // over the list: no access, or an empty folder
+    private final ImageView viewBtn;
     private final LinearLayout opsBar, pasteBar;
     private final TextView pasteText, status;
     private final Button pasteBtn;
@@ -131,16 +128,15 @@ public final class FilesTab {
     private Set<File> favs = new java.util.HashSet<>();
     private List<File> listing = new ArrayList<>();   // the folder as read, before the search filter
     private String query = "";
-    private int rowsPerPage = 8;
     private int generation;
     private boolean busy;
     private boolean noAccess;   // no storage permission: the page asks for it
 
     private final Runnable runSearch = this::load;
+    private final Config.Listener onConfig = this::render;
 
-    public FilesTab(Activity act, Host host) {
+    public FilesTab(Activity act) {
         this.act = act;
-        this.host = host;
         prefs = act.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
         root = new LinearLayout(act);
@@ -178,7 +174,9 @@ public final class FilesTab {
         sortBtn = Ui.action(act, android.R.drawable.ic_menu_sort_by_size, "Sort", v -> showSort(v));
         moreBtn = Ui.textAction(act, "⋮", v -> showMenu(v));
         closeBtn = Ui.textAction(act, "✕", v -> clearSelection());
-        root.addView(Ui.header(act, titleBox, searchBtn, sortBtn, closeBtn, moreBtn));
+        viewBtn = Ui.action(act, PagedView.iconOf(Config.get("files.view")), "View",
+                v -> PagedView.chooseMode(act, v, Config.get("files.view"), m -> Config.set(act, "files.view", m)));
+        root.addView(Ui.header(act, titleBox, searchBtn, viewBtn, sortBtn, closeBtn, moreBtn));
         root.addView(Ui.divider(act));
 
         // The path: Internal storage › Download › ..., each part a way back.
@@ -190,34 +188,45 @@ public final class FilesTab {
         crumbScroll.addView(crumbs);
         root.addView(crumbScroll);
 
-        // The rows of the current page. A horizontal fling turns the page.
-        GestureDetector flip = new GestureDetector(act, new GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
-                if (a == null || Math.abs(vx) < Math.abs(vy) * 1.5f) return false;
-                return pager.turn(vx < 0 ? 1 : -1);
+        // The current page, as details, a list or a grid; a message can cover it.
+        pager = new Pager(act);
+        list = new PagedView(act, pager);
+        list.setBinder(new PagedView.Binder() {
+            @Override public int count() { return items.size(); }
+            @Override public Drawable icon(int i) {
+                Item it = items.get(i);
+                return act.getDrawable(it.root != null ? it.root.icon : iconOf(it.file));
+            }
+            @Override public String title(int i) {
+                Item it = items.get(i);
+                return it.root != null ? it.root.title : it.file.getName();
+            }
+            @Override public String summary(int i) { return FilesTab.this.summary(items.get(i)); }
+            @Override public String mark(int i) {
+                File f = items.get(i).file;
+                return f == null ? null : selected.contains(f) ? "✓" : favs.contains(f) ? "★" : null;
+            }
+            @Override public boolean highlight(int i) {
+                File f = items.get(i).file;
+                return f != null && selected.contains(f);
+            }
+            @Override public boolean dim(int i) { return false; }
+            @Override public void click(int i, View v) { tap(items.get(i)); }
+            @Override public boolean longClick(int i, View v) {
+                File f = items.get(i).file;
+                if (f == null) return false;
+                toggle(f);
+                return true;
             }
         });
-        list = new LinearLayout(act) {
-            @Override public boolean dispatchTouchEvent(MotionEvent e) {
-                if (flip.onTouchEvent(e)) {
-                    MotionEvent cancel = MotionEvent.obtain(e);
-                    cancel.setAction(MotionEvent.ACTION_CANCEL);
-                    super.dispatchTouchEvent(cancel);
-                    cancel.recycle();
-                    return true;
-                }
-                return super.dispatchTouchEvent(e);
-            }
-        };
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int rows = Math.max(1, (b - t) / Ui.dp(act, Ui.ROW_DP));
-            if (b - t > 0 && rows != rowsPerPage) {
-                rowsPerPage = rows;
-                main.post(this::render);
-            }
-        });
-        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        overlay = new LinearLayout(act);
+        overlay.setOrientation(LinearLayout.VERTICAL);
+        overlay.setBackgroundColor(Ui.BG);
+        overlay.setVisibility(View.GONE);
+        FrameLayout body = new FrameLayout(act);
+        body.addView(list);
+        body.addView(overlay);
+        root.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         status = new TextView(act);
         status.setTextColor(Ui.DIM);
@@ -252,9 +261,8 @@ public final class FilesTab {
         pasteBar.addView(Ui.textAction(act, "✕", v -> { clip = null; render(); }));
         root.addView(withLine(pasteBar));
 
-        pager = new Pager(act);
-        pager.setListener(p -> render());
         root.addView(pager);
+        Config.addListener(onConfig);
 
         history.add(new Place(Mode.HOME, null, null));
     }
@@ -271,6 +279,10 @@ public final class FilesTab {
 
     public void onHide() {
         hideIme();
+    }
+
+    public void onDestroy() {
+        Config.removeListener(onConfig);
     }
 
     /** Back on screen: the folder may have changed, or the permission been granted. */
@@ -435,18 +447,20 @@ public final class FilesTab {
         renderCrumbs(p);
 
         // The page.
-        int first = (p.mode == Mode.HOME && query.isEmpty()) ? 1 : 0;   // the storage bar takes a row
-        int per = Math.max(1, rowsPerPage - first);
-        pager.setPages((items.size() + per - 1) / per);
-        list.removeAllViews();
-        if (noAccess) {
-            list.addView(noAccessPanel());
-            pager.setPages(1);
-        } else if (first == 1 && pager.page() == 0) list.addView(storageRow());
-        int from = pager.page() * per;
-        for (int i = from; i < Math.min(items.size(), from + per); i++) list.addView(row(items.get(i)));
-        if (items.isEmpty() && !noAccess) list.addView(message(p.mode == Mode.FOLDER && query.isEmpty() ? "This folder is empty"
-                : "Nothing here"));
+        // The first screen is a menu of roots under the storage bar: always details.
+        boolean home = p.mode == Mode.HOME && query.isEmpty();
+        String mode = Config.get("files.view");
+        viewBtn.setImageResource(PagedView.iconOf(mode));
+        viewBtn.setVisibility(selecting || home ? View.GONE : View.VISIBLE);
+        list.setMode(home ? PagedView.DETAILS : mode);
+        list.setGrid(4, 0);
+        list.setLead(home ? storageRow() : null);
+        list.refresh();
+        overlay.removeAllViews();
+        if (noAccess) overlay.addView(noAccessPanel());
+        else if (items.isEmpty()) overlay.addView(message(p.mode == Mode.FOLDER && query.isEmpty()
+                ? "This folder is empty" : "Nothing here"));
+        overlay.setVisibility(overlay.getChildCount() > 0 ? View.VISIBLE : View.GONE);
 
         // The bars.
         opsBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
@@ -525,20 +539,6 @@ public final class FilesTab {
         lp.topMargin = Ui.dp(act, 8);
         r.addView(bar, lp);
         r.setLayoutParams(rowParams());
-        return r;
-    }
-
-    private View row(final Item it) {
-        View r;
-        if (it.root != null) {
-            r = Ui.row(act, it.root.icon, it.root.title, summary(it), null, false);
-        } else {
-            boolean on = selected.contains(it.file);
-            r = Ui.row(act, iconOf(it.file), it.file.getName(), summary(it),
-                    on ? "✓" : favs.contains(it.file) ? "★" : null, on);
-            r.setOnLongClickListener(v -> { toggle(it.file); return true; });
-        }
-        r.setOnClickListener(v -> tap(it));
         return r;
     }
 
@@ -813,13 +813,12 @@ public final class FilesTab {
     }
 
     private void showMenu(View anchor) {
-        final int NEW_FOLDER = 1, HIDDEN = 2, SHELL = 3, HOME = 4;
+        final int NEW_FOLDER = 1, HIDDEN = 2, HOME = 4;
         Place p = place();
         PopupMenu pm = new PopupMenu(act, anchor);
         Menu m = pm.getMenu();
         if (p.mode == Mode.FOLDER) {
             m.add(0, NEW_FOLDER, 0, "New folder");
-            m.add(0, SHELL, 1, "Open shell here");
         }
         m.add(0, HIDDEN, 2, Config.getBool("files.showHidden") ? "Hide hidden files" : "Show hidden files");
         if (p.mode != Mode.HOME) m.add(0, HOME, 3, "Storage");
@@ -833,7 +832,6 @@ public final class FilesTab {
                     load();
                     break;
                 }
-                case SHELL: host.openShellAt(p.dir); break;
                 case HOME: goHome(); break;
             }
             return true;
@@ -848,7 +846,6 @@ public final class FilesTab {
         Menu m = pm.getMenu();
         if (one != null) m.add(0, 1, 0, "Rename");
         m.add(0, 2, 1, "Select all");
-        if (one != null && one.isDirectory()) m.add(0, 3, 2, "Open shell here");
         if (one != null && place().mode != Mode.FOLDER) m.add(0, 4, 3, "Show in folder");
         final boolean allFav = favs.containsAll(sel);
         m.add(0, 5, 4, allFav ? "Remove from favorites" : "Add to favorites");
@@ -856,7 +853,6 @@ public final class FilesTab {
             switch (item.getItemId()) {
                 case 1: rename(one); break;
                 case 2: for (Item it : items) if (it.file != null) selected.add(it.file); render(); break;
-                case 3: host.openShellAt(one); clearSelection(); break;
                 case 4: go(new Place(Mode.FOLDER, one.getParentFile(), null)); break;
                 case 5:
                     if (allFav) Favorites.remove(act, sel);
