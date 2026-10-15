@@ -6,10 +6,9 @@ import android.view.animation.DecelerateInterpolator;
 /**
  * The few motions of the app, all short and all off with one setting
  * (launcher.animations): a tab, a page or a folder slides in from the side it
- * comes from, a menu grows from where it was asked for, a settings
- * screen rises. They run on the view's animator, so the system's animator
- * duration scale (Developer options, or the PDA panel) applies too: at 0 they
- * are instant.
+ * comes from, a menu grows from where it was asked for. They run on the view's
+ * animator, so the system's animator duration scale (Developer options, or the
+ * PDA panel) applies too: at 0 they are instant.
  */
 public final class Anim {
 
@@ -28,16 +27,6 @@ public final class Anim {
         v.setTranslationX(Integer.signum(dir) * Ui.dp(v.getContext(), 48));
         v.setAlpha(0f);
         v.animate().translationX(0f).alpha(1f).setDuration(MEDIUM)
-                .setInterpolator(new DecelerateInterpolator()).start();
-    }
-
-    /** A screen laid over the tabs: up from a little below. */
-    public static void riseIn(View v) {
-        if (!on()) return;
-        v.animate().cancel();
-        v.setTranslationY(Ui.dp(v.getContext(), 32));
-        v.setAlpha(0f);
-        v.animate().translationY(0f).alpha(1f).setDuration(MEDIUM)
                 .setInterpolator(new DecelerateInterpolator()).start();
     }
 

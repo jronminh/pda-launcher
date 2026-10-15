@@ -31,7 +31,6 @@ final class NoteTab {
     private static boolean keptLocked;
 
     private final Activity act;
-    private final java.util.function.Consumer<String> openSettings;
     private final LinearLayout root;
     private final ImageView lockBtn;
     private final EditText board;
@@ -40,9 +39,8 @@ final class NoteTab {
 
     private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "note.")) applySize(); };
 
-    NoteTab(Activity act, java.util.function.Consumer<String> openSettings) {
+    NoteTab(Activity act) {
         this.act = act;
-        this.openSettings = openSettings;
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -143,10 +141,10 @@ final class NoteTab {
     private void showMenu(View anchor) {
         PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Clear").setEnabled(!locked && board.length() > 0);
-        pm.getMenu().add(0, 2, 1, "Note settings");
+        pm.getMenu().add(0, 2, 1, "Text size  ›");
         pm.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == 1) board.setText("");
-            else openSettings.accept(SettingsScreen.NOTE);
+            else PopMenu.choose(act, anchor, "note.textSize", "Small", "Medium", "Large");
             return true;
         });
         pm.show();

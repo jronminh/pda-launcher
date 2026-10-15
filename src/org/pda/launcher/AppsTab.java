@@ -62,7 +62,6 @@ final class AppsTab {
     }
 
     private final Activity act;
-    private final java.util.function.Consumer<String> openSettings;
     private final LauncherApps launcherApps;
     private final List<App> all = new ArrayList<>();
     private final List<App> shown = new ArrayList<>();
@@ -85,10 +84,8 @@ final class AppsTab {
         @Override public void onPackagesUnsuspended(String[] pkgs, UserHandle user) { changed(pkgs); }
     };
 
-    /** {@code openSettings} opens a settings screen: "apps" for this tab's. */
-    AppsTab(Activity act, java.util.function.Consumer<String> openSettings) {
+    AppsTab(Activity act) {
         this.act = act;
-        this.openSettings = openSettings;
         launcherApps = (LauncherApps) act.getSystemService(Context.LAUNCHER_APPS_SERVICE);
         prefs = act.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
@@ -180,11 +177,14 @@ final class AppsTab {
     private void showMenu(View anchor) {
         PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Show/Hide apps");
-        pm.getMenu().add(0, 2, 1, "Apps settings");
+        // The grid's size, in the menu itself: a tab with so few settings needs no screen.
+        pm.getMenu().add(0, 2, 1, "Columns: " + Config.get("apps.columns") + "  ›");
+        pm.getMenu().add(0, 3, 2, "Rows: " + Config.get("apps.rows") + "  ›");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: showHideDialog(); break;
-                default: openSettings.accept(SettingsScreen.APPS);
+                case 2: PopMenu.choose(act, anchor, "apps.columns"); break;
+                default: PopMenu.choose(act, anchor, "apps.rows");
             }
             return true;
         });

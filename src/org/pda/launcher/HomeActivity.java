@@ -19,7 +19,7 @@ import java.util.Locale;
 
 /**
  * The home screen: five tabs (Apps, Favorites, Files, Note, Settings) over a tab
- * bar at the bottom. A tab's own settings, opened from its menu, cover the tabs.
+ * bar at the bottom. A tab's few options are in its own menu.
  */
 public class HomeActivity extends Activity {
 
@@ -35,12 +35,10 @@ public class HomeActivity extends Activity {
     private FavoritesTab favorites;
     private FilesTab files;
     private NoteTab note;
-    private SettingsScreen settings;      // a tab's settings, over the tabs
-    private SettingsScreen settingsTab;   // the Settings tab: the general settings
+    private SettingsScreen settingsTab;   // the Settings tab
     private Config.Listener onConfig;
     private final LinearLayout[] buttons = new LinearLayout[NAMES.length];   // an icon over a label
     private int tab = -1;
-    private boolean settingsOpen;
     private boolean stopped = true;   // no screen of ours is showing
     private boolean appsRead;         // the apps are read once; LauncherApps tells changes after
     private View cover;               // black over the tabs while the system brings the launcher back
@@ -71,7 +69,7 @@ public class HomeActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < NAMES.length; i++) {
             final int which = i;
-            LinearLayout b = Ui.labeledAction(this, ICONS[i], NAMES[i], v -> { closeSettings(); show(which); });
+            LinearLayout b = Ui.labeledAction(this, ICONS[i], NAMES[i], v -> show(which));
             row.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             buttons[i] = b;
         }
@@ -92,20 +90,14 @@ public class HomeActivity extends Activity {
         frame.addView(cover);
         setContentView(frame);
 
-        apps = new AppsTab(this, this::openSettings);
-        favorites = new FavoritesTab(this, new FavoritesTab.Host() {
-            @Override public void openFolder(java.io.File dir) {
-                files.openFolder(dir);
-                show(FILES);
-            }
-            @Override public void openSettings(String scope) {
-                HomeActivity.this.openSettings(scope);
-            }
+        apps = new AppsTab(this);
+        favorites = new FavoritesTab(this, dir -> {
+            files.openFolder(dir);
+            show(FILES);
         });
-        files = new FilesTab(this, this::openSettings);
-        note = new NoteTab(this, this::openSettings);
-        settings = new SettingsScreen(this, apps::showHideDialog, this::closeSettings);
-        settingsTab = new SettingsScreen(this, apps::showHideDialog, null);
+        files = new FilesTab(this);
+        note = new NoteTab(this);
+        settingsTab = new SettingsScreen(this);
         settingsTab.open(SettingsScreen.GENERAL);
         settingsTab.onHide();
         content.addView(apps.view());
@@ -113,8 +105,6 @@ public class HomeActivity extends Activity {
         content.addView(files.view());
         content.addView(note.view());
         content.addView(settingsTab.view());
-        content.addView(settings.view());
-        settings.view().setVisibility(View.GONE);
         applyTabStyle();
         onConfig = keys -> {
             apps.onConfig(keys);
@@ -129,7 +119,6 @@ public class HomeActivity extends Activity {
         super.onNewIntent(intent);
         // Home pressed while the launcher is already on screen: the tab of the
         // launcher.homeTab setting. Pressed from another app: the tab that was open.
-        if (!stopped) closeSettings();
         int home = homeTab();
         if (!stopped && home == APPS) apps.reset();
         show(tabOf(intent, stopped ? tab : home));
@@ -185,8 +174,7 @@ public class HomeActivity extends Activity {
             appsRead = true;
             apps.reload();
         }
-        if (settingsOpen) settings.onShow();   // Android's state may have changed
-        else if (tab == FILES) files.onResume();
+        if (tab == FILES) files.onResume();
         else if (tab == FAVORITES) favorites.onShow();
         else if (tab == SETTINGS) settingsTab.onShow();   // Android's state may have changed
     }
@@ -194,7 +182,6 @@ public class HomeActivity extends Activity {
     @Override
     protected void onDestroy() {
         Config.removeListener(onConfig);
-        settings.onHide();
         settingsTab.onHide();
         note.onDestroy();
         files.onDestroy();
@@ -212,7 +199,6 @@ public class HomeActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (settingsOpen) { settings.onBack(); return; }
         if (tab == APPS) {
             // Nothing left to go back to: a home screen stays. (The default would
             // close it, and the system would only open it again.)
@@ -284,29 +270,6 @@ public class HomeActivity extends Activity {
             label(i).setVisibility(style.equals("icons") ? View.GONE : View.VISIBLE);
             label(i).setTextSize(style.equals("labels") ? 14 : 11);
         }
-    }
-
-    /** A tab's settings cover the tabs; the tab bar stays, and any tab closes them.
-     *  The general settings are the Settings tab. */
-    private void openSettings(String scope) {
-        if (SettingsScreen.GENERAL.equals(scope)) {
-            closeSettings();
-            show(SETTINGS);
-            return;
-        }
-        note.onHide();
-        settingsOpen = true;
-        settings.view().setVisibility(View.VISIBLE);
-        settings.view().bringToFront();
-        settings.open(scope);
-        Anim.riseIn(settings.view());
-    }
-
-    private void closeSettings() {
-        if (!settingsOpen) return;
-        settingsOpen = false;
-        settings.view().setVisibility(View.GONE);
-        settings.onHide();
     }
 
     /** The launcher.homeTab setting, as a tab. */

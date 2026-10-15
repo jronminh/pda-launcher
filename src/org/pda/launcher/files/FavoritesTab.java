@@ -33,12 +33,9 @@ import java.util.Locale;
  */
 public final class FavoritesTab {
 
-    /** What the tab asks of the launcher. */
+    /** What the tab asks of the launcher: show a folder in the Files tab. */
     public interface Host {
         void openFolder(File dir);
-
-        /** Open a settings screen: "favorites" for this tab's. */
-        void openSettings(String scope);
     }
 
     private final Activity act;
@@ -211,12 +208,7 @@ public final class FavoritesTab {
     private void showMenu(View anchor) {
         PopMenu pm = new PopMenu(act, anchor);
         pm.getMenu().add(0, 1, 0, "Remove missing items");
-        pm.getMenu().add(0, 2, 1, "Favorites settings");
         pm.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 2) {
-                host.openSettings("favorites");
-                return true;
-            }
             List<File> gone = new ArrayList<>();
             for (File f : favs) if (!f.exists()) gone.add(f);
             Favorites.remove(act, gone);

@@ -19,10 +19,8 @@ import android.provider.Settings;
 import android.text.format.Formatter;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -32,23 +30,18 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
- * Settings, after the Boox launcher's settings but smaller, and hiding nothing of
- * Android's. The Settings tab ({@link #GENERAL}) is a banner (the device and the
- * app) over tiles, shown as a grid by default (or details, or a list): the
- * launcher's own groups open their settings here, Android's open its screens.
- * A group's settings ({@link #LAUNCHER} or a tab's) are a list of rows; a tab's
- * menu opens its own the same way, over the tabs.
+ * The Settings tab, after the Boox launcher's settings but smaller, and hiding
+ * nothing of Android's: a banner (the device and the app) over tiles, a grid by
+ * default (or details, or a list). The Launcher tile opens the launcher's
+ * settings here ({@link #LAUNCHER}, a list of rows; Back returns); the others
+ * open Android's screens. A tab's few options are in that tab's own menu.
  */
 final class SettingsScreen {
 
-    /** What the screen shows: the tiles, or one group's settings. */
-    static final String GENERAL = "general", LAUNCHER = "launcher", APPS = "apps",
-            FAVORITES = "favorites", FILES = "files", NOTE = "note";
-    private static final String[] VIEWS = { "details:Details", "list:List", "grid:Grid" };
+    /** What the screen shows: the tiles, or the launcher's settings. */
+    static final String GENERAL = "general", LAUNCHER = "launcher";
 
     private final Activity act;
-    private final Runnable showHideApps;
-    private final Runnable close;
     private final LinearLayout root;
     private final Header header;
     private final ImageView viewBtn, sortBtn;
@@ -98,14 +91,8 @@ final class SettingsScreen {
         }
     }
 
-    /**
-     * @param close closes the screen; null when the screen is the Settings tab,
-     *              which stays (Back then leaves it to the launcher).
-     */
-    SettingsScreen(Activity act, Runnable showHideApps, Runnable close) {
+    SettingsScreen(Activity act) {
         this.act = act;
-        this.showHideApps = showHideApps;
-        this.close = close;
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -192,16 +179,13 @@ final class SettingsScreen {
     }
 
     /**
-     * Back (and ‹): from a group opened from the tiles, back to them; otherwise
-     * close the screen.
-     * @return false when there is nothing to go back to (the Settings tab).
+     * Back (and ‹): the search, then from the launcher's settings back to the tiles.
+     * @return false when there is nothing to go back to.
      */
     boolean onBack() {
         if (header.searching()) { header.closeSearch(); return true; }
         if (fromGeneral) { open(GENERAL); return true; }
-        if (close == null) return false;
-        close.run();
-        return true;
+        return false;
     }
 
     private void openGroup(String group) {
@@ -217,10 +201,6 @@ final class SettingsScreen {
         // The launcher's own: their settings open here.
         tileList.add(new Tile(R.drawable.ic_home, "Launcher",
                 () -> "Home button: " + label(Config.get("launcher.homeTab")), () -> openGroup(LAUNCHER)));
-        tileList.add(new Tile(R.drawable.ic_apps, "Apps", () -> "View, grid, Show/Hide", () -> openGroup(APPS)));
-        tileList.add(new Tile(R.drawable.ic_star, "Favorites", () -> "View", () -> openGroup(FAVORITES)));
-        tileList.add(new Tile(R.drawable.ic_folder, "Files", () -> "View, hidden files, access", () -> openGroup(FILES)));
-        tileList.add(new Tile(R.drawable.ic_pencil, "Note", () -> "Text size", () -> openGroup(NOTE)));
         // Android's: each opens its screen.
         tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
         tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
@@ -320,23 +300,6 @@ final class SettingsScreen {
                         new Intent(Settings.ACTION_HOME_SETTINGS)));
                 e.add(link("App info", "PDA Launcher " + HomeActivity.versionName(act), appDetails()));
                 break;
-            case APPS:
-                e.add(choice("apps.view", "View", VIEWS));
-                e.add(number("apps.columns", "Grid columns"));
-                e.add(number("apps.rows", "Grid rows"));
-                e.add(action("Show/Hide apps", "Which apps the tab lists", showHideApps));
-                break;
-            case FAVORITES:
-                e.add(choice("favorites.view", "View", VIEWS));
-                break;
-            case FILES:
-                e.add(choice("files.view", "View", VIEWS));
-                e.add(toggle("files.showHidden", "Show hidden files"));
-                e.add(link("Storage access", storageGranted() ? "Allowed" : "Not allowed", appDetails()));
-                break;
-            case NOTE:
-                e.add(choice("note.textSize", "Text size"));
-                break;
             default:
                 break;
         }
@@ -346,7 +309,7 @@ final class SettingsScreen {
     private void render() {
         boolean general = GENERAL.equals(scope);
         header.setTitle(general ? "Settings" : label(scope) + (LAUNCHER.equals(scope) ? "" : " settings"));
-        header.showBack(close != null || fromGeneral);
+        header.showBack(fromGeneral);
         header.setSearchEnabled(general);
         viewBtn.setVisibility(general ? View.VISIBLE : View.GONE);
         sortBtn.setVisibility(general ? View.VISIBLE : View.GONE);
@@ -375,12 +338,6 @@ final class SettingsScreen {
     private Entry link(String title, String summary, Intent intent) {
         return () -> {
             return new Row(title, summary, "›", () -> start(intent));
-        };
-    }
-
-    private Entry action(String title, String summary, Runnable run) {
-        return () -> {
-            return new Row(title, summary, "›", run);
         };
     }
 
@@ -418,62 +375,6 @@ final class SettingsScreen {
         };
     }
 
-    /** A whole number within the schema's range. */
-    private Entry number(String key, String title) {
-        return () -> {
-            String[] row = Config.schema(key);
-            int lo = 0, hi = 1000;
-            if (row != null && row[2].contains("-")) {
-                String[] r = row[2].split("-");
-                lo = Integer.parseInt(r[0]);
-                hi = Integer.parseInt(r[1]);
-            }
-            final int min = lo, max = hi;
-            int cur = Config.getInt(key);
-            return new Row(title, min + " to " + max, String.valueOf(cur), () -> {
-                if (max - min <= 200) {
-                    NumberPicker np = new NumberPicker(act);
-                    np.setMinValue(min);
-                    np.setMaxValue(max);
-                    np.setValue(Math.max(min, Math.min(max, cur)));
-                    np.setWrapSelectorWheel(false);
-                    new AlertDialog.Builder(act)
-                            .setTitle(title)
-                            .setView(np)
-                            .setPositiveButton("OK", (d, w) -> set(key, String.valueOf(np.getValue())))
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                } else {
-                    EditText f = field(String.valueOf(cur));
-                    f.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-                    ask(title, f, () -> set(key, f.getText().toString().trim()));
-                }
-            });
-        };
-    }
-
-    private EditText field(String value) {
-        EditText f = new EditText(act);
-        f.setSingleLine(true);
-        f.setText(value);
-        f.setSelection(f.getText().length());
-        return f;
-    }
-
-    private void ask(String title, EditText field, Runnable ok) {
-        LinearLayout box = new LinearLayout(act);
-        int p = Ui.dp(act, 20);
-        box.setPadding(p, Ui.dp(act, 8), p, 0);
-        box.addView(field, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        new AlertDialog.Builder(act)
-                .setTitle(title)
-                .setView(box)
-                .setPositiveButton("OK", (d, w) -> ok.run())
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
     private void set(String key, String value) {
         String err = Config.set(act, key, value);
         if (err != null) Toast.makeText(act, err, Toast.LENGTH_LONG).show();
@@ -491,11 +392,6 @@ final class SettingsScreen {
         android.content.pm.ResolveInfo ri = act.getPackageManager()
                 .resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
         return ri != null && ri.activityInfo != null && act.getPackageName().equals(ri.activityInfo.packageName);
-    }
-
-    private boolean storageGranted() {
-        return act.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED;
     }
 
     private String wifiState() {

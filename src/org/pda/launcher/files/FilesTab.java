@@ -98,7 +98,6 @@ public final class FilesTab {
     private static boolean clipMove;
 
     private final Activity act;
-    private final java.util.function.Consumer<String> openSettings;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private final LinearLayout root;
@@ -128,10 +127,8 @@ public final class FilesTab {
     // The order, hidden files, the view: read the place again.
     private final Config.Listener onConfig = keys -> { if (Config.touches(keys, "files.")) load(); };
 
-    /** {@code openSettings} opens a settings screen: "files" for this tab's. */
-    public FilesTab(Activity act, java.util.function.Consumer<String> openSettings) {
+    public FilesTab(Activity act) {
         this.act = act;
-        this.openSettings = openSettings;
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -816,7 +813,7 @@ public final class FilesTab {
     // --- menus ---------------------------------------------------------------------------
 
     private void showMenu(View anchor) {
-        final int NEW_FOLDER = 1, HIDDEN = 2, HOME = 4, SETTINGS = 5;
+        final int NEW_FOLDER = 1, HIDDEN = 2, HOME = 4;
         Place p = place();
         PopMenu pm = new PopMenu(act, anchor);
         PopMenu m = pm.getMenu();
@@ -825,7 +822,6 @@ public final class FilesTab {
         }
         m.add(0, HIDDEN, 2, Config.getBool("files.showHidden") ? "Hide hidden files" : "Show hidden files");
         if (p.mode != Mode.HOME) m.add(0, HOME, 3, "Storage");
-        m.add(0, SETTINGS, 4, "Files settings");
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case NEW_FOLDER: newFolder(); break;
@@ -837,7 +833,6 @@ public final class FilesTab {
                     break;
                 }
                 case HOME: goHome(); break;
-                case SETTINGS: openSettings.accept("files"); break;
             }
             return true;
         });

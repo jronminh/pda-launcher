@@ -8,7 +8,7 @@ A home screen with five tabs on a bar at the bottom (no swiping):
   (`‹ 1/3 ›` or a horizontal swipe), with search in the header. No widgets, no
   wallpaper. Tap to open; long-press for App info, Hide, Uninstall. The grid
   follows installs, removals and suspended apps (`LauncherApps.Callback`). The
-  header menu (⋮) has Show/Hide apps and Apps settings.
+  header menu (⋮) has Show/Hide apps and the grid's size.
 - **Favorites**: favourite files and folders, in the order they were added. Tap a
   folder to show it in Files, a file to open it; long-press to reorder, show in
   folder, or remove. Items are added from Files (select, ⋮ › Add to favorites),
@@ -22,7 +22,7 @@ A home screen with five tabs on a bar at the bottom (no swiping):
   keyboard); ⋮ › Clear empties it.
 
 Apps, Favorites and Files each show their items one of three ways, chosen with
-the view button in the header (or in the tab's settings) and kept per tab: **Details**
+the view button in the header and kept per tab: **Details**
 (icon, name and a line of details), **List** (a small icon and the name) or
 **Grid** (a big icon over the name). Every way turns pages; the Apps grid takes
 its columns and rows from Settings. The Settings tab's tiles have the three
@@ -34,14 +34,13 @@ size, type; Files by name, date, size, type (folders first); Settings' tiles in
 their own order or by name. Choosing the current order again turns it round.
 Files has ‹ in its header whenever there is a place to go back to.
 
-**Settings.** Each tab has its own, in its menu (⋮ › *Apps settings*, *Favorites
-settings*, *Files settings*, *Note settings*): the view, the grid size and
-Show/Hide apps, hidden files and storage access, the note's text size; they
-cover the tabs until Back, ‹ or a tab. The **Settings** tab, after the Boox
-launcher's settings but smaller, starts with a banner (the device's name, model
-and Android version, battery, storage, the launcher's version) over tiles, a
-grid by default: Launcher (the tab Home opens, the default home app), Apps,
-Favorites, Files and Note open their settings in place (Back returns); Wi-Fi,
+**Settings.** A tab's few options are in its own menu (⋮): Show/Hide apps
+and the grid's columns and rows in Apps, hidden files in Files, the text size in
+Note; the view and the order are the header's buttons. The **Settings** tab,
+after the Boox launcher's settings but smaller, starts with a banner (the
+device's name, model and Android version, battery, storage, the launcher's
+version) over tiles, a grid by default: Launcher (the tab Home opens, the tab
+bar, animations, the default home app) opens in place (Back returns); Wi-Fi,
 Bluetooth, Display, Sound, Notifications, Battery, Storage, Applications,
 Location, Security, Accounts, Date & time, Language, Developer, About phone and
 All settings open Android's own screens, nothing hidden.
@@ -55,7 +54,7 @@ Back returns to Apps; Home on the home screen opens the tab chosen in Settings
 tab that was open. The look is pure black for an OLED screen and flat (inspired
 by the Onyx Boox launcher). Motion is short and optional (Settings › Launcher ›
 Animations, on by default): a tab, a page or a folder slides in from its
-side, a menu grows from where it was asked for, a tab's settings rise. The
+side, a menu grows from where it was asked for. The
 system's animator duration scale applies too.
 
 "Show/Hide apps" is a launcher-only filter stored in the launcher's preferences:

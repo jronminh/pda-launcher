@@ -109,6 +109,34 @@ public final class PopMenu {
         onPick = l;
     }
 
+    /**
+     * A menu of a setting's values, the current one checked; a pick stores it. The
+     * values are the schema's: an enum's, or each number of an int's range.
+     * {@code labels} name them in order (default: the value itself).
+     */
+    public static void choose(Context c, View anchor, String key, String... labels) {
+        String[] row = Config.schema(key);
+        String[] values;
+        if (row[0].equals("int")) {
+            String[] r = row[2].split("-");
+            int lo = Integer.parseInt(r[0]), hi = Integer.parseInt(r[1]);
+            values = new String[hi - lo + 1];
+            for (int i = 0; i < values.length; i++) values[i] = String.valueOf(lo + i);
+        } else {
+            values = row[2].split("\\|");
+        }
+        String cur = Config.get(key);
+        PopMenu m = new PopMenu(c, anchor);
+        for (int i = 0; i < values.length; i++) {
+            m.add(0, i, i, i < labels.length ? labels[i] : values[i]).setChecked(values[i].equals(cur));
+        }
+        m.setOnMenuItemClickListener(it -> {
+            Config.set(c, key, values[it.getItemId()]);
+            return true;
+        });
+        m.show();
+    }
+
     public void show() {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
