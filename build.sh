@@ -14,7 +14,7 @@ rm -rf $OUT && mkdir -p $OUT/classes $OUT/dex $OUT/gen
   -o $OUT/unsigned.apk $OUT/res.zip
 
 javac --release 11 -nowarn -cp "$AJ" -d $OUT/classes \
-  $(command find src $OUT/gen -name '*.java')
+  $(command find src third_party/*/src $OUT/gen -name '*.java')
 "$BT/d8" --min-api 26 --lib "$AJ" --output $OUT/dex $(command find $OUT/classes -name '*.class')
 (cd $OUT/dex && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f -p 4 $OUT/unsigned.apk $OUT/aligned.apk

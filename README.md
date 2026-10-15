@@ -44,9 +44,11 @@ show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
   renames and deletes; shortcuts are pinned so their app keeps them.
 - **Files**: a file manager after AOSP DocumentsUI and the Boox Storage screen,
   with a **Trash** (Delete moves there at once; Restore puts it back; kept 7 to
-  365 days) and **locations**: folders other apps offer to Android (an SMB
-  share through an SMB provider app, Nextcloud, Termux's home, a USB drive, a
-  cloud drive), added with "Add a location" and browsed in the same look. See
+  365 days) and **locations**: **SFTP, FTP and FTPS servers** (a password or a
+  key; the server's key pinned on first use), and folders other apps offer to
+  Android (an SMB share through an SMB provider app, Nextcloud, Termux's home, a
+  USB drive), added with "Add a location" and browsed in the same look: open,
+  download, upload, paste what Files copied, rename, delete. See
   [docs/files.md](docs/files.md).
 - **Today**: the PDA's information centre, in the look of the other tabs: a
   banner (the date, the next alarm, today's events; tap for the agenda) over

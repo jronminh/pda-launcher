@@ -38,6 +38,7 @@ import org.pda.launcher.Ui;
 import org.pda.launcher.Config;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -95,6 +96,13 @@ public final class FilesTab {
 
     // What was copied or cut: kept across screens until it is pasted or dropped.
     private static List<File> clip;
+
+    private View lastTapped;   // where a menu from a tap shows
+
+    /** What Files copied or cut, for a location's Paste (a copy of the list). */
+    static List<File> clipboard() {
+        return clip == null ? new ArrayList<>() : new ArrayList<>(clip);
+    }
     private static boolean clipMove;
 
     private final Activity act;
@@ -193,7 +201,7 @@ public final class FilesTab {
                 File f = items.get(i).file;
                 if (f != null && !noAccess) Thumbs.into(act, f, icon);
             }
-            @Override public void click(int i, View v) { tap(items.get(i)); }
+            @Override public void click(int i, View v) { lastTapped = v; tap(items.get(i)); }
             @Override public boolean longClick(int i, View v) {
                 Roots.Root r = items.get(i).root;
                 if (r != null && r.kind == Roots.Kind.LOCATION) { locationMenu(v, r); return true; }
@@ -410,11 +418,151 @@ public final class FilesTab {
         }).start();
     }
 
-    // --- locations (other apps' folders, through the Storage Access Framework) ----------
+    // --- locations: other apps' folders (Storage Access Framework), servers ----------
 
-    public static final int REQUEST_TREE = 44;
+    public static final int REQUEST_TREE = 44, REQUEST_KEY = 45;
+    private static String keyFor;   // the server a key file is being picked for
 
-    private void addLocation() {
+    private void addLocation(View anchor) {
+        PopMenu m = new PopMenu(act, anchor);
+        m.add(0, 1, 0, "From another app…");
+        m.add(0, 2, 1, "SFTP server…");
+        m.add(0, 3, 2, "FTP server…");
+        m.add(0, 4, 3, "FTPS server (FTP over TLS)…");
+        m.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1: pickTree(); break;
+                case 2: editServer(null, Remotes.SFTP); break;
+                case 3: editServer(null, Remotes.FTP); break;
+                default: editServer(null, Remotes.FTPS);
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    /** The server's form: a new one ({@code s} null) or one to change; the password kept when left empty. */
+    private void editServer(Remotes.Server s, String kind) {
+        String label = kind.equals(Remotes.SFTP) ? "SFTP" : kind.equals(Remotes.FTPS) ? "FTPS" : "FTP";
+        new org.pda.launcher.Prompt(act, (s == null ? "Add an " : "Edit the ") + label + " server")
+                .field("Host (name or address)", s == null ? null : s.host,
+                        android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI)
+                .field("Port (" + (kind.equals(Remotes.SFTP) ? "22" : "21") + " if empty)",
+                        s == null || s.port <= 0 ? null : String.valueOf(s.port), android.text.InputType.TYPE_CLASS_NUMBER)
+                .field(kind.equals(Remotes.SFTP) ? "User" : "User (empty: anonymous)", s == null ? null : s.user,
+                        android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI)
+                .field(s == null ? "Password" : "Password (empty: keep)", null,
+                        android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                .field("Folder to start in (optional)", s == null ? null : s.folder,
+                        android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI)
+                .field("Name (optional)", s == null ? null : s.name)
+                .ok(s == null ? "Add" : "Save", v -> {
+                    if (v[0].isEmpty()) { toast("A host is needed"); return; }
+                    int port = 0;
+                    try { if (!v[1].isEmpty()) port = Integer.parseInt(v[1]); } catch (NumberFormatException ignore) {}
+                    String id = s != null ? s.id : Long.toString(System.currentTimeMillis(), 36);
+                    String name = !v[5].isEmpty() ? v[5] : (v[2].isEmpty() ? "" : v[2] + "@") + v[0];
+                    Remotes.Server n = new Remotes.Server(id, kind, name, v[0], port, v[2], v[4]);
+                    if (s != null && !s.host.equals(n.host)) Remotes.forgetPin(act, id);   // another machine
+                    Remotes.put(act, n, s == null || !v[3].isEmpty() ? v[3] : null);
+                    load();
+                    tryServer(n);
+                })
+                .show(root);
+    }
+
+    /** Connect once, in the background: the key pinned now, a mistake said at once. */
+    private void tryServer(Remotes.Server s) {
+        toast("Connecting to " + s.host + "…");
+        new Thread(() -> {
+            String said;
+            try {
+                org.pda.launcher.remote.RemoteFs fs = Remotes.open(act, s);
+                fs.home();
+                fs.close();
+                said = "Connected to " + s.name;
+            } catch (IOException e) {
+                said = s.name + ": " + e.getMessage();
+            }
+            final String t = said;
+            act.runOnUiThread(() -> Toast.makeText(act, t, Toast.LENGTH_LONG).show());
+        }, "files-try").start();
+    }
+
+    /** The answer of the key file picker: the key copied in, then its passphrase asked. */
+    public void onKeyPicked(Intent data) {
+        final String id = keyFor;
+        keyFor = null;
+        if (id == null || data == null || data.getData() == null) return;
+        byte[] key;
+        try (java.io.InputStream in = act.getContentResolver().openInputStream(data.getData())) {
+            if (in == null) throw new IOException("cannot be read");
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0 && b.size() < 64 * 1024) b.write(buf, 0, n);
+            key = b.toByteArray();
+        } catch (IOException | SecurityException e) {
+            toast("The key file: " + e.getMessage());
+            return;
+        }
+        if (!new String(key, java.nio.charset.StandardCharsets.US_ASCII).contains("PRIVATE KEY")) {
+            toast("Not a private key file (OpenSSH or PEM)");
+            return;
+        }
+        final byte[] k = key;
+        new org.pda.launcher.Prompt(act, "The key's passphrase").field("Empty if it has none", null,
+                android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                .ok("Use the key", v -> {
+                    try {
+                        Remotes.setKey(act, id, k, v[0]);
+                        Remotes.Server s = Remotes.get(act, id);
+                        if (s != null) tryServer(s);
+                    } catch (IOException e) {
+                        toast(e.getMessage());
+                    }
+                }).show(root);
+    }
+
+    private void serverMenu(View anchor, Roots.Root r) {
+        final Remotes.Server s = Remotes.get(act, r.remote);
+        if (s == null) return;
+        PopMenu m = new PopMenu(act, anchor);
+        m.add(0, 1, 0, "Edit…");
+        boolean sftp = s.kind.equals(Remotes.SFTP);
+        boolean hasKey = Remotes.keyFile(act, s.id).isFile();
+        if (sftp) m.add(0, 2, 1, hasKey ? "Change the key file…" : "Use a key file…");
+        if (sftp && hasKey) m.add(0, 3, 2, "Stop using the key file");
+        if (Remotes.pinning(act, s.id).known() != null) m.add(0, 4, 3, "Forget the server's key");
+        m.add(0, 5, 4, "Remove");
+        m.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 1: editServer(s, s.kind); break;
+                case 2:
+                    keyFor = s.id;
+                    try {
+                        act.startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                                .addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_KEY);
+                    } catch (ActivityNotFoundException e) {
+                        toast("No picker on this device");
+                    }
+                    break;
+                case 3: Remotes.forgetKey(act, s.id); toast("The password is used again"); break;
+                case 4: Remotes.forgetPin(act, s.id); toast("The next connection trusts the key it meets"); break;
+                default:
+                    new AlertDialog.Builder(act)
+                            .setMessage("Remove " + s.name + " from Files? Its password and key go too; nothing on the"
+                                    + " server is touched.")
+                            .setPositiveButton("Remove", (d, w) -> { Remotes.remove(act, s.id); load(); })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+            }
+            return true;
+        });
+        m.show();
+    }
+
+    private void pickTree() {
         Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
@@ -433,6 +581,7 @@ public final class FilesTab {
     }
 
     private void locationMenu(View anchor, Roots.Root r) {
+        if (r.remote != null) { serverMenu(anchor, r); return; }
         PopMenu m = new PopMenu(act, anchor);
         m.add(0, 1, 0, "Rename");
         m.add(0, 2, 1, "Remove");
@@ -694,11 +843,15 @@ public final class FilesTab {
     private String summary(Item it) {
         if (it.root != null) {
             if (it.root.dir != null) return it.root.dir.getPath();
+            if (it.root.kind == Roots.Kind.LOCATION && it.root.remote != null) {
+                Remotes.Server s = Remotes.get(act, it.root.remote);
+                return s == null ? "" : s.where();
+            }
             if (it.root.kind == Roots.Kind.LOCATION) {
                 return Locations.reachable(act, it.root.tree) ? "From " + providerName(it.root.tree)
                         : "Not reachable: add it again";
             }
-            if (it.root.kind == Roots.Kind.ADD) return "A NAS, a cloud, Termux… through an app that offers it";
+            if (it.root.kind == Roots.Kind.ADD) return "A server (SFTP, FTP), or another app's folders";
             if (it.root.kind == Roots.Kind.TRASH) return "Deleted things, kept " + Config.get("files.trashDays") + " days";
             return it.root.kind == Roots.Kind.RECENT ? "Changed in the last " + Roots.RECENT_DAYS + " days" : "";
         }
@@ -799,13 +952,14 @@ public final class FilesTab {
 
     private void tap(Item it) {
         if (it.root != null && it.root.kind == Roots.Kind.LOCATION) {
-            start(new Intent(act, LocationActivity.class)
-                    .putExtra(LocationActivity.EXTRA_TREE, it.root.tree.toString())
-                    .putExtra(LocationActivity.EXTRA_NAME, it.root.title));
+            Intent i = new Intent(act, LocationActivity.class).putExtra(LocationActivity.EXTRA_NAME, it.root.title);
+            if (it.root.remote != null) i.putExtra(LocationActivity.EXTRA_REMOTE, it.root.remote);
+            else i.putExtra(LocationActivity.EXTRA_TREE, it.root.tree.toString());
+            start(i);
             return;
         }
         if (it.root != null && it.root.kind == Roots.Kind.ADD) {
-            addLocation();
+            addLocation(lastTapped != null ? lastTapped : root);
             return;
         }
         if (it.root != null) {

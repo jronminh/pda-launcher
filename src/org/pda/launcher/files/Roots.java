@@ -28,7 +28,8 @@ final class Roots {
         final String title;
         final int icon;
         final File dir;   // for FOLDER
-        final android.net.Uri tree;   // for LOCATION
+        final android.net.Uri tree;   // for LOCATION: another app's folder
+        String remote;                // for LOCATION: a server's id (Remotes)
 
         Root(Kind kind, String title, int icon, File dir) {
             this(kind, title, icon, dir, null);
@@ -73,6 +74,11 @@ final class Roots {
         List<Root> r = all();
         for (Locations.Location l : Locations.all(c)) {
             r.add(new Root(Kind.LOCATION, l.name, R.drawable.ic_globe, null, l.tree));
+        }
+        for (Remotes.Server s : Remotes.all(c)) {
+            Root x = new Root(Kind.LOCATION, s.name, R.drawable.ic_globe, null, null);
+            x.remote = s.id;
+            r.add(x);
         }
         r.add(new Root(Kind.ADD, "Add a location", R.drawable.ic_add, null));
         return r;

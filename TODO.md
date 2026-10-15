@@ -167,12 +167,17 @@ media session and sleep timer for audio; video and archives.
 
 ## Network storage
 
-Done, the first step: locations through the Storage Access Framework (any
-app's documents provider: SMB providers, Nextcloud, Termux...), see
-docs/files.md. Left: copy and move between Files and a location with the
-clip (today: Download to the device, Upload here); the built-in viewers for a
-location's files (a copy in the cache); and, only if providers fall short, a
-protocol in the app as below.
+Done: locations through the Storage Access Framework, and SFTP, FTP, FTPS
+servers (src/org/pda/launcher/remote: RemoteFs, FtpFs, SftpFs; JSch in
+third_party/jsch), tried against a local sshd and pyftpdlib on the JVM and in
+the app; Paste from Files, fetch-to-open, upload, download. Left:
+- WebDAV (HttpURLConnection alone), then SMB only through a provider app.
+- FTPS data connections need TLS session reuse on many servers (vsftpd's
+  require_ssl_reuse): not tried yet; plain FTP and SFTP are.
+- Ed25519 keys (need Bouncy Castle or API 33's EdDSA: not now).
+- A file opened from a server is a copy: send it back when the editor saved it.
+- Transfers in the background (a foreground service with a notification) so a
+  long copy survives leaving the screen; Copy from a location into Files' clip.
 
 New roots in Files, under the local ones, each a place you add once (address,
 user, password; the password in the app's private storage, never in a log).
@@ -225,7 +230,9 @@ way, and write it again with framework views as the rest of the app is.
 
 Outside AOSP (licences to check again before copying anything):
 
-- Network storage: smbj (SMB) and sshj (SFTP), Apache-2.0; JSch, BSD-style.
+- Network storage: JSch (mwiede fork, BSD) is in, for SFTP (third_party/jsch,
+  its README says what was left out and how to update it). smbj (SMB) and sshj
+  (SFTP), Apache-2.0, were the other choices.
   WebDAV needs none. Avoid jcifs-ng (LGPL, awkward in one dex) and Google's
   samba-documents-provider (GPL: read only).
 - Text editing: Markor (Apache-2.0).

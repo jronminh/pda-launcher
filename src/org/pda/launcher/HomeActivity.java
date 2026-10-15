@@ -267,6 +267,7 @@ public class HomeActivity extends Activity {
     protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
         if (code == org.pda.launcher.files.FilesTab.REQUEST_TREE && result == RESULT_OK) files.onTreePicked(data);
+        if (code == org.pda.launcher.files.FilesTab.REQUEST_KEY) files.onKeyPicked(result == RESULT_OK ? data : null);
     }
 
     @Override

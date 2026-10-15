@@ -52,14 +52,27 @@ that contain the text (at most 200).
   folder, renamed "name (1)" if taken) and Delete (for good, after a
   question); ⋮ has Empty trash and Keep for 7, 30, 90 or 365 days. Older things
   go when the first screen next shows.
-- **Locations**: "Add a location" opens Android's folder picker
+- **Servers**: "Add a location" › SFTP, FTP or FTPS server: host, port, user,
+  password, a folder to start in, a name. It connects once at once (a mistake
+  is said then). SFTP is JSch (third_party/jsch; RSA and ECDSA keys, not
+  Ed25519 on Android); FTP and FTPS are the launcher's own client on the
+  platform's sockets (passive, MLSD or Unix LIST, explicit TLS). The server's
+  SSH key or TLS certificate is pinned the first time; a different one later
+  stops and asks. Long-press the location: Edit, Use a key file (SFTP: copied
+  into the app's private storage, with its passphrase), Forget the server's
+  key, Remove. Passwords and keys stay in the app's private storage.
+- **Locations from other apps**: "Add a location" › From another app opens Android's folder picker
   (ACTION_OPEN_DOCUMENT_TREE); any app that offers folders to the system can
   answer (an SMB provider for a NAS, Nextcloud, Termux, a USB drive, Drive).
   The grant is kept; the folder becomes a root (long-press: Rename, Remove).
-  It opens in its own screen in the Files look: folders in, files opened by
-  the system's apps (Open with too), Download to the device, Rename, Delete
-  (the provider's, no trash), Details, + for a new folder or to upload files.
-  The launcher speaks no network protocol: the providing app does.
+- Either kind opens in its own screen in the Files look (LocationActivity over
+  RemoteFs): folders in; a file opens where Files would open it (a server's
+  file is fetched first into the app's cache under Android/data; another app's
+  goes by its link), Open with, Download to the device, Rename, Delete (the
+  place's own, no trash, after a question), Details; + for a new folder, to
+  upload files from Android's picker, or to paste what Files copied (folders
+  too). Hidden names follow Files' Show hidden files. One operation at a
+  time, on a worker thread, with the progress in the status line.
 - Long-press starts a selection: Copy, Move, Delete (to the Trash), Share, and
   ⋮ with Open with… and Details (one item: path, type, size, a folder's count,
   dates, a link's target, an image's pixels, a song's or a video's length, an
