@@ -100,3 +100,31 @@ it, as only One UI Home can.
 - Files reads its place twice when the launcher starts on that tab.
 - APK icons in thumbnails are cropped (centre crop for every thumbnail).
 - An 8-row Apps grid can clip two-line labels.
+
+## References
+
+AOSP first: it is Apache-2.0, like this repo, so a piece may be copied with
+credit. Launcher3 and the newer apps lean on androidx, so read them for the
+way, and write it again with framework views as the rest of the app is.
+
+| For | Read |
+| --- | --- |
+| App shortcuts | `platform/packages/apps/Launcher3`: `shortcuts/ShortcutRequest.java` (wraps `LauncherApps.ShortcutQuery`), `popup/PopupPopulator.java`, `popup/SystemShortcut.java` |
+| Notification dots | Launcher3 `notification/NotificationListener.java`, `NotificationKeyData.java` |
+| Tablets, landscape | Launcher3 `DeviceProfile.java` (columns and rows from the screen); DocumentsUI's two-pane tablet layout |
+| One search | Launcher3 `allapps/search` |
+| Audio player | `platform/packages/apps/Music`: `MediaPlaybackService.java` (`main` is cut down; read an older branch) |
+| Image viewer | `platform/packages/apps/Gallery2` is heavy (OpenGL); take its tiled decoding with the framework's `BitmapRegionDecoder` |
+| Text editor | none in AOSP; `platform/development/samples/NotePad` is only a sample |
+| PDF | the framework's `PdfRenderer` |
+| Trash | MediaStore's own (`IS_TRASHED`, `createTrashRequest`, API 30+) once targetSdk is raised; a hidden folder before |
+| Glance line | `AlarmManager.getNextAlarmClock()` |
+
+Outside AOSP (licences to check again before copying anything):
+
+- Network storage: smbj (SMB) and sshj (SFTP), Apache-2.0; JSch, BSD-style.
+  WebDAV needs none. Avoid jcifs-ng (LGPL, awkward in one dex) and Google's
+  samba-documents-provider (GPL: read only).
+- Text editing: Markor (Apache-2.0).
+- Zoomable images: PhotoView (its older ImageView-based version) and
+  subsampling-scale-image-view, both Apache-2.0.
