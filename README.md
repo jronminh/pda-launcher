@@ -93,10 +93,26 @@ after the Boox launcher's settings but smaller, starts with a small banner of
 static facts (the device's name, model and Android version, the launcher's
 version; tap it for About phone) over tiles, a grid by default: Launcher (the
 tab Home opens, the tabs' order and which show, the viewers, the tab bar,
-animations, the default home app) opens in place (Back returns); Wi-Fi,
-Bluetooth, Display, Sound, Battery, Storage, Applications and All settings
-open Android's own screens: few tiles, each for daily use, and everything
-else one tap further in Android's list, nothing hidden.
+animations, the default home app) opens in place (Back returns). Wi-Fi,
+Bluetooth, Display, Sound, Battery and Storage open short pages of their
+own, each the few things done every day and a last row, *More in Android
+settings*, for the rest:
+
+- *Wi-Fi*: on/off, the connection (signal, IP address), airplane mode.
+- *Bluetooth*: on/off, the device's name, the paired devices.
+- *Display*: brightness (a slider), adaptive brightness, screen timeout,
+  auto-rotate; font size shown. They need *Modify system settings*, which the
+  page asks for once.
+- *Sound*: ringer (sound, vibrate, silent: Do Not Disturb access asked when
+  needed) and the ring, notification, media and alarm volumes (sliders).
+- *Battery*: level and charging, time to full, health, temperature,
+  voltage, battery saver.
+- *Storage*: used and free, what images, videos, audio and documents take;
+  internal storage and Download open in Files.
+
+Applications and All settings open Android's own screens: few tiles, each
+for daily use, and everything else one tap further in Android's list,
+nothing hidden.
 
 The headers carry no tab title (the tab bar names the tab): a title shows only
 where it tells something, a media root or a selection in Files, Launcher or

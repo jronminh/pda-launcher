@@ -111,7 +111,10 @@ public class HomeActivity extends Activity {
             files.openFolder(dir);
             show(FILES);
         });
-        settingsTab = new SettingsScreen(this);
+        settingsTab = new SettingsScreen(this, dir -> {
+            files.openFolder(dir);
+            show(FILES);
+        });
         settingsTab.open(SettingsScreen.GENERAL);
         settingsTab.onHide();
         content.addView(apps.view());

@@ -22,6 +22,17 @@
          is asked while targetSdk is under 33). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Prefs' own pages (Wi-Fi, Bluetooth, Display, Sound): read the state and
+         switch Wi-Fi and Bluetooth (all granted at install). Display's settings
+         and Silent need special access the user turns on in Android's screens
+         when first used: Modify system settings, Do Not Disturb access. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- The Timer tile asks the clock app for a timer. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 

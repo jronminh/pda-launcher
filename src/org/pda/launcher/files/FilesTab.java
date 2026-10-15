@@ -297,7 +297,12 @@ public final class FilesTab {
     }
 
     /** Show a folder, from another tab (Briefcase, Today): the first screen, then the folder. */
-    public void openFolder(File dir) {
+    /** Shared storage by kind (bytes and count of images, videos, audio, documents): Prefs › Storage. */
+    public static long[] mediaKinds(Context c) {
+        return Roots.kinds(c);
+    }
+
+        public void openFolder(File dir) {
         if (header.searching()) header.closeSearch();
         history.clear();
         history.add(new Place(Mode.HOME, null, null));

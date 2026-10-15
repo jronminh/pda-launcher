@@ -12,6 +12,9 @@ and to leave Android's compatibility modes. Not a one-line change:
 - **Edge to edge.** From 35 the window is drawn under the status and
   navigation bars: apply the insets to every tab, the tab bar, the settings
   screens and PopMenu's frame.
+- **Prefs' own pages.** Wi-Fi's switch stops working at targetSdk 29 and
+  Bluetooth's at 33: use `Settings.Panel` (29+) or open Android's screen
+  there; Bluetooth then also needs BLUETOOTH_CONNECT (31+, asked).
 - **Package visibility** (30+): the launcher queries with LauncherApps, which
   is fine; `getPackageArchiveInfo` and the APK icon are fine too. Check the
   intents for opening files and Android's settings screens (`<queries>`).
@@ -33,7 +36,8 @@ The app is ready in look; to ship it, beyond "Raise targetSdk" above:
   app sends nothing anywhere, reads the calendar only on the device, and keeps
   its files in shared storage. Permissions to explain: All files access (a
   file manager), REQUEST_INSTALL_PACKAGES (Files opens an APK; file managers
-  qualify) or drop it, READ_CALENDAR (the glance line, Today), QUERY_ALL_PACKAGES
+  qualify) or drop it, READ_CALENDAR (the glance line, Today), WRITE_SETTINGS
+  and Do Not Disturb access (Prefs › Display, Sound), QUERY_ALL_PACKAGES
   if needed after 30 (a launcher qualifies).
 - **The listing.** Screenshots of each tab (phone and tablet), a 512 px icon,
   a feature graphic, a short and a full description; check that

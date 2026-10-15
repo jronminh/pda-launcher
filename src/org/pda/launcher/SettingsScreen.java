@@ -4,13 +4,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Environment;
@@ -33,8 +31,10 @@ import java.util.function.Supplier;
  * The Prefs tab, after the Boox launcher's settings but smaller, and hiding
  * nothing of Android's: a banner (the device and the app) over tiles, a grid by
  * default (or details, or a list). The Launcher tile opens the launcher's
- * settings here ({@link #LAUNCHER}, a list of rows; Back returns); the others
- * open Android's screens. A tab's few options are in that tab's own menu.
+ * settings here ({@link #LAUNCHER}, a list of rows; Back returns); Wi-Fi,
+ * Bluetooth, Display, Sound, Battery and Storage open short pages of their own
+ * ({@link DeviceSettings}), each ending in Android's screen; Applications and
+ * All settings open Android's. A tab's few options are in that tab's own menu.
  */
 final class SettingsScreen {
 
@@ -56,16 +56,18 @@ final class SettingsScreen {
     private String scope = GENERAL;
     private boolean fromGeneral;   // a group opened from the tiles: Back returns there
     private boolean fromLauncher;  // Tabs opened from the Launcher group: Back returns there
+    private final DeviceSettings device;
+    private boolean shown;         // the tab is on screen
 
     private final Config.Listener onConfig = keys -> render();   // it shows the values
 
     /** One row of a group: a section title, or a setting that builds its own row. */
-    private interface Entry {
+    interface Entry {
         Row row();
     }
 
     /** What a row of a group shows: a title, a dim line, a value or "›", and what a tap does. */
-    private static final class Row {
+    static final class Row {
         final String title, summary, value;
         final Runnable click;
 
@@ -92,8 +94,9 @@ final class SettingsScreen {
         }
     }
 
-    SettingsScreen(Activity act) {
+    SettingsScreen(Activity act, java.util.function.Consumer<java.io.File> openFolder) {
         this.act = act;
+        device = new DeviceSettings(act, this, openFolder);
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -163,6 +166,7 @@ final class SettingsScreen {
     void open(String scope) {
         fromGeneral = false;
         fromLauncher = false;
+        if (DeviceSettings.STORAGE.equals(this.scope)) device.forget();   // counted again next time
         this.scope = scope;
         pager.setPage(0);
         onShow();
@@ -175,12 +179,15 @@ final class SettingsScreen {
     }
 
     void onShow() {
+        shown = true;
         Config.addListener(onConfig);
         render();
     }
 
     void onHide() {
+        shown = false;
         Config.removeListener(onConfig);
+        device.listen(false);
     }
 
     /**
@@ -212,12 +219,14 @@ final class SettingsScreen {
         tileList.add(new Tile(R.drawable.ic_home, "Launcher",
                 () -> "Home button: " + Tabs.NAMES[Math.max(0, Tabs.idOf(Config.get("launcher.homeTab")))], () -> openGroup(LAUNCHER)));
         // Android's: each opens its screen.
-        tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
-        tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
-        tileList.add(android(R.drawable.ic_display, "Display", null, Settings.ACTION_DISPLAY_SETTINGS));
-        tileList.add(android(R.drawable.ic_sound, "Sound", null, Settings.ACTION_SOUND_SETTINGS));
-        tileList.add(android(R.drawable.ic_battery, "Battery", this::batteryState, Intent.ACTION_POWER_USAGE_SUMMARY));
-        tileList.add(android(R.drawable.ic_storage, "Storage", this::storageState, Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
+        // Android's daily ones: a short page here, ending in Android's screen.
+        tileList.add(new Tile(R.drawable.ic_wifi, "Wi-Fi", device::wifiSummary, () -> openGroup(DeviceSettings.WIFI)));
+        tileList.add(new Tile(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, () -> openGroup(DeviceSettings.BLUETOOTH)));
+        tileList.add(new Tile(R.drawable.ic_display, "Display", this::brightnessState, () -> openGroup(DeviceSettings.DISPLAY)));
+        tileList.add(new Tile(R.drawable.ic_sound, "Sound", device::soundSummary, () -> openGroup(DeviceSettings.SOUND)));
+        tileList.add(new Tile(R.drawable.ic_battery, "Battery", this::batteryState, () -> openGroup(DeviceSettings.BATTERY)));
+        tileList.add(new Tile(R.drawable.ic_storage, "Storage", this::storageState, () -> openGroup(DeviceSettings.STORAGE)));
+        // Android's: each opens its screen.
         tileList.add(android(R.drawable.ic_package, "Applications", null, Settings.ACTION_APPLICATION_SETTINGS));
         // The rest (notifications, location, security, accounts, date, language,
         // developer...) is one tap further, in Android's own list: few tiles, each daily.
@@ -299,6 +308,7 @@ final class SettingsScreen {
                 }
                 break;
             default:
+                if (DeviceSettings.owns(scope)) device.entries(scope, e);
                 break;
         }
         return e;
@@ -307,7 +317,8 @@ final class SettingsScreen {
     private void render() {
         boolean general = GENERAL.equals(scope);
         // The tab bar names the tab; a title says only where inside it one is.
-        header.setTitle(general ? "" : label(scope));
+        header.setTitle(general ? "" : DeviceSettings.owns(scope) ? DeviceSettings.title(scope) : label(scope));
+        device.listen(shown && DeviceSettings.owns(scope));
         header.showBack(fromGeneral);
         header.setSearchEnabled(general);
         viewBtn.setVisibility(general ? View.VISIBLE : View.GONE);
@@ -441,13 +452,9 @@ final class SettingsScreen {
         return ri != null && ri.activityInfo != null && act.getPackageName().equals(ri.activityInfo.packageName);
     }
 
-    private String wifiState() {
-        WifiManager wm = (WifiManager) act.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        try {
-            return wm != null && wm.isWifiEnabled() ? "On" : "Off";
-        } catch (SecurityException e) {
-            return null;
-        }
+    private String brightnessState() {
+        int b = Settings.System.getInt(act.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, -1);
+        return b < 0 ? null : "Brightness " + Math.round(b * 100f / 255) + "%";
     }
 
     @SuppressWarnings("deprecation")
@@ -483,7 +490,17 @@ final class SettingsScreen {
         return new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + act.getPackageName()));
     }
 
-    private void start(Intent i) {
+    /** Show Android's state again (a page's receiver, a slider closed). */
+    void refresh() {
+        if (shown) render();
+    }
+
+    /** Where a page's cards open over. */
+    View anchor() {
+        return list;
+    }
+
+    void start(Intent i) {
         try {
             act.startActivity(i);
         } catch (ActivityNotFoundException | SecurityException e) {
