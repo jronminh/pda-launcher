@@ -41,8 +41,9 @@ The app is ready in look; to ship it, beyond "Raise targetSdk" above:
   Its build server needs a recipe: build.sh with a pinned android.jar and
   build-tools, reproducible; no Gradle is fine with a custom build. Fastlane
   metadata (descriptions, screenshots) in the repo serves both stores.
-- **Devices.** Try on a tablet, Android 8 to 16, and a device without Google
-  (an AOSP emulator image): the tiles' default apps, the viewers, the torch,
+- **Devices.** First a pure AOSP ROM (vanilla LineageOS, or an AOSP emulator
+  image without Google APIs): the goal of AGENTS.md. Then a tablet, Android 8
+  to 16: the tiles' default apps, the viewers, the torch,
   storage access, edge to edge, a wide screen (the tablet layout above).
 - **Words.** Move the UI's strings into res/values/strings.xml, then a
   Vietnamese translation (values-vi); dates and sizes already follow the locale.
@@ -105,7 +106,7 @@ killed (an update, low memory, a reboot), not only while it lives:
 A tab's button is the way back to its start, whatever was remembered: going
 to a tab opens it as it was left; tapping the button of the tab already open
 takes it to its start at once (Applications: page 1, no search; Briefcase:
-page 1; Files: the first screen, the history cleared; Today: the Today part;
+page 1; Files: the first screen, the history cleared; Today: its tiles;
 Prefs: the tiles), with no other state lost.
 
 Kept in a small state file (or SharedPreferences) written when the launcher
@@ -145,7 +146,7 @@ editor (save atomically, wrap, monospace, revert; over 2 MB or binary goes to
 the system's app), image viewer (fitted, pinch/double-tap zoom, swipe through
 the folder, EXIF rotation), audio player (the folder as the queue, cover,
 seek, focus; stops when closed), PDF reader (PdfRenderer, ‹ n/count ›, swipe,
-zoom). Each opens in its own task. Left from the list below: find, pages in
+zoom). Each opens in its own task, out of Recents unless asked for. Left from the list below: find, pages in
 the editor; rotate/share/delete in images; a foreground service, notification,
 media session and sleep timer for audio; video and archives.
 

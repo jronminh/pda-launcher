@@ -2,6 +2,12 @@
 
 Started in 2026 from [Saranomy/NoLauncher](https://github.com/Saranomy/NoLauncher) (Apache-2.0) and since rewritten; none of its code remains. Thanks for the start.
 
+**Goal: works 100% on a pure AOSP ROM** such as vanilla LineageOS, with no
+Google or maker apps: built on the AOSP framework and the standard intents
+AOSP's own apps answer, plus a few open-source projects through standard
+Android contracts (documents providers, Termux). It needs no account and
+sends nothing anywhere. The rules are in [AGENTS.md](AGENTS.md).
+
 A home screen with five tabs on a bar at the bottom (no swiping), named as on
 a Palm: Applications, Briefcase, Files, Today and Prefs. Their order, and which
 show, are chosen in Prefs › Launcher › Tabs (Prefs always shows).
