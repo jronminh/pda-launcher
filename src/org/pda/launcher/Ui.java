@@ -3,7 +3,6 @@ package org.pda.launcher;
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -36,7 +35,7 @@ public final class Ui {
         return t;
     }
 
-    /** A header action: a platform icon, tinted white. */
+    /** A header action: one of the app's line icons (tools/icons.py), white. */
     public static ImageView action(Context c, int drawable, String description, View.OnClickListener click) {
         ImageView i = new ImageView(c);
         i.setImageResource(drawable);
@@ -47,19 +46,6 @@ public final class Ui {
         i.setOnClickListener(click);
         i.setLayoutParams(new LinearLayout.LayoutParams(dp(c, 48), dp(c, 48)));
         return i;
-    }
-
-    /** A text action, for what has no platform icon (⋮, ‹, page arrows). */
-    public static TextView textAction(Context c, String text, View.OnClickListener click) {
-        TextView t = new TextView(c);
-        t.setText(text);
-        t.setTextColor(TEXT);
-        t.setTextSize(20);
-        t.setGravity(Gravity.CENTER);
-        t.setMinWidth(dp(c, 48));
-        t.setMinHeight(dp(c, 48));
-        t.setOnClickListener(click);
-        return t;
     }
 
     /** The height of a list row; lists turn pages of whole rows. */

@@ -74,7 +74,7 @@ public final class FavoritesTab {
                 .action(Header.sort(act, "favorites.sort", "favorites.desc",
                         "Order added", "Name", "Date modified", "Size", "Type"))
                 .action(viewBtn)
-                .action(Ui.textAction(act, "⋮", v -> showMenu(v)));
+                .action(Ui.action(act, org.pda.launcher.R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
 

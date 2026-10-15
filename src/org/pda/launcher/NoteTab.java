@@ -11,9 +11,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
-import android.widget.TextView;
 import android.widget.Toast;
 
 /**
@@ -34,7 +34,7 @@ final class NoteTab {
     private final Activity act;
     private final java.util.function.Consumer<String> openSettings;
     private final LinearLayout root;
-    private final TextView lockBtn;
+    private final ImageView lockBtn;
     private final EditText board;
     private boolean locked;
     private long fullToastAt;
@@ -49,12 +49,11 @@ final class NoteTab {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        lockBtn = Ui.textAction(act, "Lock", v -> setLocked(!locked, true));
-        lockBtn.setTextSize(15);
-        lockBtn.setPadding(Ui.dp(act, 12), 0, Ui.dp(act, 12), 0);
+        // The button shows the board's state: open while it can be written, shut when locked.
+        lockBtn = Ui.action(act, R.drawable.ic_lock_open, "Lock", v -> setLocked(!locked, true));
         root.addView(new Header(act, "Note")
                 .action(lockBtn)
-                .action(Ui.textAction(act, "⋮", v -> showMenu(v)))
+                .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)))
                 .view());
         root.addView(Ui.divider(act));
 
@@ -125,7 +124,8 @@ final class NoteTab {
     private void setLocked(boolean on, boolean byUser) {
         locked = on;
         keptLocked = on;
-        lockBtn.setText(on ? "Unlock" : "Lock");
+        lockBtn.setImageResource(on ? R.drawable.ic_lock : R.drawable.ic_lock_open);
+        lockBtn.setContentDescription(on ? "Unlock" : "Lock");
         board.setFocusable(!on);
         board.setFocusableInTouchMode(!on);
         board.setCursorVisible(!on);

@@ -17,7 +17,8 @@ import android.widget.TextView;
  * {@link #DETAILS} (icon, title, a dim summary), {@link #LIST} (a small icon and
  * the title) or {@link #GRID} (a big icon over the title). It fills its height
  * with whole rows; how many items make a page follows from the mode and the
- * height, and the {@link Pager} is told. A horizontal fling turns the page.
+ * height, and the {@link Pager} is told. A horizontal fling anywhere in it, on an
+ * item or on the empty space under the last one, turns the page.
  * The items come from a {@link Binder}; the view is rebuilt on {@link #refresh}.
  */
 public final class PagedView extends LinearLayout {
@@ -106,6 +107,12 @@ public final class PagedView extends LinearLayout {
         post(this::refresh);
     }
 
+    /**
+     * Every touch is seen by the fling detector first. The gesture is always
+     * taken (true), even where no item is under the finger: else Android sends
+     * the rest of a gesture that starts on empty space elsewhere, and a swipe
+     * there would do nothing. A fling cancels what the items saw of it.
+     */
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         if (flip.onTouchEvent(e)) {
@@ -115,7 +122,8 @@ public final class PagedView extends LinearLayout {
             cancel.recycle();
             return true;
         }
-        return super.dispatchTouchEvent(e);
+        super.dispatchTouchEvent(e);
+        return true;
     }
 
     // --- layout --------------------------------------------------------------------------

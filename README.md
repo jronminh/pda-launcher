@@ -62,6 +62,12 @@ Changes from upstream:
 - Package `org.pda.launcher`, so it can be installed next to the upstream app.
 - `targetSdk 28`, so the Files tab keeps legacy storage (docs/files.md).
 
+## Icons
+
+Every icon is a white line drawing in one style (24 x 24, stroke 1.5, round
+ends), written by `python3 tools/icons.py` from the table in that script; the
+XML in `res/drawable/` is its output, not to be edited by hand.
+
 ## Build
 
 Needs `javac`, Android build-tools (`d8`, `aapt2`, `zipalign`, `apksigner`) and

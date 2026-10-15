@@ -3,10 +3,11 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Written by tools/icons.py: edit the table there, not this file. -->
     <path
         android:strokeColor="#FFFFFF"
         android:strokeWidth="1.5"
         android:strokeLineJoin="round"
         android:strokeLineCap="round"
-        android:pathData="M2,9a15,15 0 0,1 20,0 M5,12.5a10,10 0 0,1 14,0 M8.5,16a5,5 0 0,1 7,0 M11.2,19.5a0.8,0.8 0 1,0 1.6,0a0.8,0.8 0 1,0 -1.6,0" />
+        android:pathData="M2,9a15,15 0 0,1 20,0 M5,12.5a10,10 0 0,1 14,0 M8.5,16a5,5 0 0,1 7,0 M11.4,19.5a0.6,0.6 0 1,0 1.2,0a0.6,0.6 0 1,0 -1.2,0" />
 </vector>

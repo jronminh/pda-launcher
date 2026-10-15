@@ -229,7 +229,7 @@ final class SettingsScreen {
         tileList.add(android(R.drawable.ic_bell, "Notifications", null, "android.settings.NOTIFICATION_SETTINGS"));
         tileList.add(android(R.drawable.ic_battery, "Battery", this::batteryState, Intent.ACTION_POWER_USAGE_SUMMARY));
         tileList.add(android(R.drawable.ic_storage, "Storage", this::storageState, Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
-        tileList.add(android(R.drawable.ic_view_grid, "Applications", null, Settings.ACTION_APPLICATION_SETTINGS));
+        tileList.add(android(R.drawable.ic_package, "Applications", null, Settings.ACTION_APPLICATION_SETTINGS));
         tileList.add(android(R.drawable.ic_location, "Location", null, Settings.ACTION_LOCATION_SOURCE_SETTINGS));
         tileList.add(android(R.drawable.ic_lock, "Security", null, Settings.ACTION_SECURITY_SETTINGS));
         tileList.add(android(R.drawable.ic_account, "Accounts", null, Settings.ACTION_SYNC_SETTINGS));

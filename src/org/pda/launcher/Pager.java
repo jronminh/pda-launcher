@@ -3,6 +3,7 @@ package org.pda.launcher;
 import android.content.Context;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -17,7 +18,8 @@ public final class Pager extends LinearLayout {
         void onPage(int page);
     }
 
-    private final TextView text, prev, next;
+    private final TextView text;
+    private final ImageView prev, next;
     private Listener listener;
     private int page, pages = 1;
 
@@ -25,8 +27,8 @@ public final class Pager extends LinearLayout {
         super(c);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER);
-        prev = Ui.textAction(c, "‹", v -> turn(-1));
-        next = Ui.textAction(c, "›", v -> turn(1));
+        prev = Ui.action(c, R.drawable.ic_back, "Previous page", v -> turn(-1));
+        next = Ui.action(c, R.drawable.ic_forward, "Next page", v -> turn(1));
         text = new TextView(c);
         text.setTextColor(Ui.DIM);
         text.setTextSize(14);

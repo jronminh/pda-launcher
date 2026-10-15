@@ -142,8 +142,8 @@ public final class FilesTab {
         // view, and the menu; a selection shows ✕ instead.
         pager = new Pager(act);
         sortBtn = Header.sort(act, "files.sort", "files.desc", "Name", "Date modified", "Size", "Type");
-        moreBtn = Ui.textAction(act, "⋮", v -> showMenu(v));
-        closeBtn = Ui.textAction(act, "✕", v -> clearSelection());
+        moreBtn = Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v));
+        closeBtn = Ui.action(act, R.drawable.ic_close, "End the selection", v -> clearSelection());
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("files.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("files.view"), m -> Config.set(act, "files.view", m)));
         header = new Header(act, "Files")
@@ -245,7 +245,7 @@ public final class FilesTab {
         pasteBtn = barButton("Paste here", v -> paste());
         pasteBar.addView(pasteBtn, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        pasteBar.addView(Ui.textAction(act, "✕", v -> { clip = null; render(); }));
+        pasteBar.addView(Ui.action(act, R.drawable.ic_close, "Drop", v -> { clip = null; render(); }));
         root.addView(withLine(pasteBar));
 
         root.addView(pager);

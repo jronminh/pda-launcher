@@ -27,7 +27,8 @@ public final class Header {
 
     private final Context c;
     private final LinearLayout view;
-    private final TextView back, title;
+    private final ImageView back;
+    private final TextView title;
     private final EditText search;
     private final LinearLayout actions;
     private ImageView searchBtn;
@@ -42,8 +43,7 @@ public final class Header {
         view.setMinimumHeight(Ui.dp(c, 52));
         view.setBackgroundColor(Ui.BG);
 
-        back = Ui.textAction(c, "‹", null);
-        back.setTextSize(28);
+        back = Ui.action(c, R.drawable.ic_back, "Back", null);
         back.setVisibility(View.GONE);
         view.addView(back);
 
@@ -111,7 +111,7 @@ public final class Header {
     /** Add the search button; {@code onQuery} gets the text as it is typed ("" when closed). */
     public Header search(Consumer<String> onQuery) {
         this.onQuery = onQuery;
-        searchBtn = Ui.action(c, android.R.drawable.ic_menu_search, "Search", v -> toggleSearch());
+        searchBtn = Ui.action(c, R.drawable.ic_search, "Search", v -> toggleSearch());
         actions.addView(searchBtn, 0);
         return this;
     }
@@ -163,7 +163,7 @@ public final class Header {
      * largest first for dates and sizes, A to Z otherwise.
      */
     public static ImageView sort(Context c, String key, String descKey, String... labels) {
-        return Ui.action(c, android.R.drawable.ic_menu_sort_by_size, "Sort", v -> {
+        return Ui.action(c, R.drawable.ic_sort, "Sort", v -> {
             String[] values = Config.schema(key)[2].split("\\|");
             String cur = Config.get(key);
             boolean desc = Config.getBool(descKey);

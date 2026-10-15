@@ -3,6 +3,7 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Written by tools/icons.py: edit the table there, not this file. -->
     <path
         android:strokeColor="#FFFFFF"
         android:strokeWidth="1.5"

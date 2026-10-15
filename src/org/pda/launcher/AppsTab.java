@@ -108,7 +108,7 @@ final class AppsTab {
             })
             .action(Header.sort(act, "apps.sort", "apps.desc", "Name", "Installed", "Updated"))
             .action(viewBtn)
-            .action(Ui.textAction(act, "⋮", v -> showMenu(v)));
+            .action(Ui.action(act, R.drawable.ic_more, "More", v -> showMenu(v)));
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
