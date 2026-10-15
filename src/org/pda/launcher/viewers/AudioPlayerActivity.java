@@ -42,6 +42,7 @@ public class AudioPlayerActivity extends Activity {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private List<File> files;
+    private Viewers.Source src;   // a link alone when src.file is null: one track, played through it
     private int at;
     private MediaPlayer player;
     private AudioManager audio;
@@ -69,9 +70,10 @@ public class AudioPlayerActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Config.prepare(this);
-        File f = Viewers.fileOf(this);
-        if (f == null) return;
-        files = Viewers.siblings(f);
+        src = Viewers.sourceOf(this);
+        if (src == null) return;
+        File f = src.file != null ? src.file : new File(src.name);
+        files = src.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
         at = files.indexOf(f);
         audio = getSystemService(AudioManager.class);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -79,9 +81,9 @@ public class AudioPlayerActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
-        header = new Header(this, f.getParentFile() == null ? "" : f.getParentFile().getName())
+        header = new Header(this, src.file == null || f.getParentFile() == null ? "" : f.getParentFile().getName())
                 .back(this::finish)
-                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.fileMenu(this, v, files.get(at))));
+                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.menu(this, v, src, files.get(at))));
         header.showBack(true);
         root.addView(header.view());
         root.addView(Ui.divider(this));
@@ -148,10 +150,12 @@ public class AudioPlayerActivity extends Activity {
     protected void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        File f = Viewers.fileOf(this);
-        if (f == null) return;
-        files = Viewers.siblings(f);
-        header.setTitle(f.getParentFile() == null ? "" : f.getParentFile().getName());
+        Viewers.Source s = Viewers.sourceOf(this);
+        if (s == null) return;
+        src = s;
+        File f = s.file != null ? s.file : new File(s.name);
+        files = s.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
+        header.setTitle(s.file == null || f.getParentFile() == null ? "" : f.getParentFile().getName());
         go(files.indexOf(f), true);
     }
 
@@ -195,7 +199,8 @@ public class AudioPlayerActivity extends Activity {
             player.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
             player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
-            player.setDataSource(f.getPath());
+            if (src.file != null) player.setDataSource(f.getPath());
+            else player.setDataSource(this, src.uri);
             player.prepare();
             player.setOnCompletionListener(mp -> {
                 if (at < files.size() - 1) go(at + 1, true);
@@ -219,7 +224,8 @@ public class AudioPlayerActivity extends Activity {
         Bitmap art = null;
         MediaMetadataRetriever r = new MediaMetadataRetriever();
         try {
-            r.setDataSource(f.getPath());
+            if (src.file != null) r.setDataSource(f.getPath());
+            else r.setDataSource(this, src.uri);
             t = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
             a = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);
             byte[] pic = r.getEmbeddedPicture();

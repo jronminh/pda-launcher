@@ -33,6 +33,8 @@ public class HomeActivity extends Activity {
 
     /** An intent extra: the tab to show. */
     public static final String EXTRA_TAB = "tab";
+    /** An intent extra with EXTRA_TAB = FILES: a folder to show (Open with › PDA Launcher). */
+    public static final String EXTRA_FOLDER = "folder";
 
     private AppsTab apps;
     private FavoritesTab favorites;
@@ -267,6 +269,13 @@ public class HomeActivity extends Activity {
 
     /** EXTRA_PART: a part of the Today tab to open (Share › Show on Note opens the board). */
     private void showPart(Intent i) {
+        if (i != null && i.hasExtra(EXTRA_FOLDER)) {
+            String path = i.getStringExtra(EXTRA_FOLDER);
+            i.removeExtra(EXTRA_FOLDER);
+            if (tab == FILES && path != null && new java.io.File(path).isDirectory()) {
+                files.openFolder(new java.io.File(path));
+            }
+        }
         if (i == null || !i.hasExtra(EXTRA_PART)) return;
         int p = i.getIntExtra(EXTRA_PART, TodayTab.START);
         i.removeExtra(EXTRA_PART);

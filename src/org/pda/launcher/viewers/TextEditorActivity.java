@@ -43,6 +43,7 @@ public class TextEditorActivity extends Activity {
     private static final long MAX = 2L * 1024 * 1024;
 
     private File file;
+    private Viewers.Source src;   // a link alone when src.file is null: read and saved through it
     private EditText text;
     private Header header;
     private String saved = "";
@@ -52,9 +53,10 @@ public class TextEditorActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Config.prepare(this);
-        String path = getIntent().getStringExtra(Viewers.EXTRA_PATH);
-        file = path == null ? null : new File(path);
-        String content = file == null ? null : read(file);
+        src = Viewers.sourceOf(this);
+        if (src == null) return;
+        file = src.file != null ? src.file : new File(src.name);
+        String content = src.file != null ? read(file) : readLink();
         if (content == null) {
             finish();
             return;
@@ -109,6 +111,34 @@ public class TextEditorActivity extends Activity {
         }
     }
 
+    /** A link's text (another app's file): the same limits as a file's. */
+    private String readLink() {
+        try (InputStream in = getContentResolver().openInputStream(src.uri)) {
+            if (in == null) throw new IOException("cannot be opened");
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                bytes.write(buf, 0, n);
+                if (bytes.size() > MAX) {
+                    Toast.makeText(this, file.getName() + " is too large for the editor", Toast.LENGTH_LONG).show();
+                    return null;
+                }
+            }
+            byte[] all = bytes.toByteArray();
+            for (int i = 0; i < Math.min(all.length, 8192); i++) {
+                if (all[i] == 0) {
+                    Toast.makeText(this, file.getName() + " is not a text file", Toast.LENGTH_LONG).show();
+                    return null;
+                }
+            }
+            return new String(all, StandardCharsets.UTF_8);
+        } catch (IOException | SecurityException e) {
+            Toast.makeText(this, "Cannot read " + file.getName() + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return null;
+        }
+    }
+
     /** Hand the file to the system's app, saying why. */
     private String fallback(String why) {
         Toast.makeText(this, file.getName() + " is " + why + "; opening it elsewhere", Toast.LENGTH_SHORT).show();
@@ -129,6 +159,19 @@ public class TextEditorActivity extends Activity {
 
     private void save() {
         String s = text.getText().toString();
+        if (src.file == null) {   // another app's file: written back through its link, if it lets us
+            try (OutputStream o = getContentResolver().openOutputStream(src.uri, "wt")) {
+                if (o == null) throw new IOException("cannot be opened for writing");
+                o.write(s.getBytes(StandardCharsets.UTF_8));
+            } catch (IOException | SecurityException | IllegalArgumentException e) {
+                Toast.makeText(this, "Cannot save here (the app that gave it allows reading only)", Toast.LENGTH_LONG).show();
+                return;
+            }
+            saved = s;
+            setDirty(false);
+            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
+            return;
+        }
         File tmp = new File(file.getPath() + ".tmp");
         try (OutputStream o = new FileOutputStream(tmp)) {
             o.write(s.getBytes(StandardCharsets.UTF_8));

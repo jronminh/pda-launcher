@@ -27,6 +27,7 @@ import java.util.List;
 public class ImageViewerActivity extends Activity {
 
     private List<File> files;
+    private Viewers.Source src;   // a link alone when src.file is null: one image, read through it
     private int at;
     private ZoomImageView image;
     private Header header;
@@ -37,9 +38,10 @@ public class ImageViewerActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Config.prepare(this);
-        File f = Viewers.fileOf(this);
-        if (f == null) return;
-        files = Viewers.siblings(f);
+        src = Viewers.sourceOf(this);
+        if (src == null) return;
+        File f = src.file != null ? src.file : new File(src.name);
+        files = src.file != null ? Viewers.siblings(f) : new java.util.ArrayList<>(java.util.Collections.singletonList(f));
         at = files.indexOf(f);
 
         FrameLayout root = new FrameLayout(this);
@@ -53,7 +55,7 @@ public class ImageViewerActivity extends Activity {
 
         header = new Header(this, "")
                 .back(this::finish)
-                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.fileMenu(this, v, files.get(at))));
+                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.menu(this, v, src, files.get(at))));
         header.showBack(true);
         bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
@@ -73,7 +75,7 @@ public class ImageViewerActivity extends Activity {
         final int max = Math.max(getResources().getDisplayMetrics().widthPixels,
                 getResources().getDisplayMetrics().heightPixels) * 2;
         new Thread(() -> {
-            Bitmap bmp = decode(f, max);
+            Bitmap bmp = src.file != null ? decode(f, max) : decodeLink(max);
             runOnUiThread(() -> {
                 if (ticket != loading || isDestroyed()) return;
                 if (bmp == null) {
@@ -84,6 +86,23 @@ public class ImageViewerActivity extends Activity {
                 }
             });
         }, "image-viewer").start();
+    }
+
+    private Bitmap decodeLink(int max) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                return ImageDecoder.decodeBitmap(ImageDecoder.createSource(getContentResolver(), src.uri), (d, info, s) -> {
+                    int w = info.getSize().getWidth(), h = info.getSize().getHeight();
+                    int longer = Math.max(w, h);
+                    if (longer > max) d.setTargetSize(w * max / longer, h * max / longer);
+                });
+            }
+            try (java.io.InputStream in = getContentResolver().openInputStream(src.uri)) {
+                return android.graphics.BitmapFactory.decodeStream(in);
+            }
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
+        }
     }
 
     /** The image at most {@code max} pixels on its longer side, rotated as the photo says. */

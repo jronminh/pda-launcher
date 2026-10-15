@@ -35,6 +35,8 @@ public class PdfViewerActivity extends Activity {
     private static final java.util.Map<String, Integer> LAST = new java.util.HashMap<>();
 
     private File file;
+    private Viewers.Source src;
+    private String key;   // the file's path, or the link: where the last page read is kept
     private ParcelFileDescriptor fd;
     private PdfRenderer pdf;
     private ZoomImageView image;
@@ -47,14 +49,18 @@ public class PdfViewerActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Config.prepare(this);
-        file = Viewers.fileOf(this);
-        if (file == null) return;
+        src = Viewers.sourceOf(this);
+        if (src == null) return;
+        file = src.file != null ? src.file : new File(src.name);
+        key = src.file != null ? file.getPath() : src.uri.toString();
         try {
-            fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+            fd = src.file != null ? ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                    : getContentResolver().openFileDescriptor(src.uri, "r");
+            if (fd == null) throw new IOException("no descriptor");
             pdf = new PdfRenderer(fd);
-        } catch (IOException | SecurityException e) {
-            Toast.makeText(this, file.getName() + " cannot be read here; opening it elsewhere", Toast.LENGTH_SHORT).show();
-            org.pda.launcher.files.FileDetails.openWith(this, file);
+        } catch (IOException | SecurityException | IllegalArgumentException e) {
+            Toast.makeText(this, file.getName() + " cannot be read here (protected, or not a PDF)", Toast.LENGTH_LONG).show();
+            if (src.file != null) org.pda.launcher.files.FileDetails.openWith(this, file);
             finish();
             return;
         }
@@ -74,7 +80,7 @@ public class PdfViewerActivity extends Activity {
 
         Header header = new Header(this, file.getName())
                 .back(this::finish)
-                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.fileMenu(this, v, file)));
+                .action(Ui.action(this, R.drawable.ic_more, "More", v -> Viewers.menu(this, v, src, file)));
         header.showBack(true);
         top = new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
@@ -100,14 +106,14 @@ public class PdfViewerActivity extends Activity {
         root.addView(bottom, lp);
         setContentView(root);
 
-        Integer last = LAST.get(file.getPath());
+        Integer last = LAST.get(key);
         go(last == null ? 0 : last);
     }
 
     private void go(int i) {
         if (pdf == null || i < 0 || i >= pdf.getPageCount()) return;
         page = i;
-        LAST.put(file.getPath(), i);
+        LAST.put(key, i);
         count.setText((i + 1) + " / " + pdf.getPageCount());
         prev.setAlpha(i > 0 ? 1f : 0.3f);
         next.setAlpha(i < pdf.getPageCount() - 1 ? 1f : 0.3f);

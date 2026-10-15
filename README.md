@@ -136,6 +136,11 @@ launcher's own viewers, each in its own task (Home leaves it in Recents):
 Prefs › Viewers chooses, per kind, the built-in one or the system's app; a
 file's ⋮ › Open with… always offers the others.
 
+Other apps can use them too: PDA Launcher is in their *Open with* for text,
+images, audio and PDF (a link another app gives is read through it, and a
+text saved back if that app allows writing), and for a folder, which opens in
+Files (another app's folder becomes a location).
+
 ## Icons
 
 Every icon is a white line drawing in one style (24 x 24, stroke 1.5, round
