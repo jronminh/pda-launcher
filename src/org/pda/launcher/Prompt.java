@@ -94,7 +94,7 @@ public final class Prompt {
 
         int width = Math.min(c.getResources().getDisplayMetrics().widthPixels - Ui.dp(c, 32), Ui.dp(c, 420));
         window = new PopupWindow(box, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
-        window.setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+        window.setBackgroundDrawable(new ColorDrawable(Ui.BG));
         window.setOutsideTouchable(true);
         window.setAnimationStyle(0);
         window.setElevation(0);

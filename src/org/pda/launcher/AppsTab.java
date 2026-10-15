@@ -104,7 +104,6 @@ final class AppsTab {
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
 
         pager = new Pager(act);
         // The header: search, sort, the view, the menu.
@@ -131,8 +130,8 @@ final class AppsTab {
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return onTiles() ? tileCount() + 1 : shown.size(); }
             @Override public Drawable icon(int i) {
-                if (isMore(i)) return act.getDrawable(R.drawable.ic_apps);
-                return onTiles() ? act.getDrawable(tiles.get(i).icon) : shown.get(i).icon;
+                if (isMore(i)) return Ui.icon(act, R.drawable.ic_apps);
+                return onTiles() ? Ui.icon(act, tiles.get(i).icon) : shown.get(i).icon;
             }
             @Override public String title(int i) {
                 if (isMore(i)) return "More";

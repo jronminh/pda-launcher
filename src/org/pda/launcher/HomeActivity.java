@@ -50,20 +50,23 @@ public class HomeActivity extends Activity {
     private boolean appsRead;         // the apps are read once; LauncherApps tells changes after
     private View cover;               // black over the tabs while the system brings the launcher back
     private final Runnable uncoverLate = this::uncover;
+    private static boolean reopenLauncherPrefs;   // a theme was chosen: come back where it was
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Ui.applyTheme(this);   // the colours, and the theme of Android's dialogs: before super
         super.onCreate(savedInstanceState);
-        Config.prepare(this);
         if (getActionBar() != null) getActionBar().hide();
-        getWindow().setStatusBarColor(Ui.BG);
-        getWindow().setNavigationBarColor(Ui.BG);
+        Ui.paintWindow(this);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
+        // The tabs are see-through: under them the theme's colour and its pattern.
         FrameLayout content = new FrameLayout(this);
+        content.setBackground(new PatternDrawable(Config.get("launcher.pattern"), Ui.BG, Ui.PATTERN,
+                getResources().getDisplayMetrics().density));
         root.addView(content, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -119,6 +122,12 @@ public class HomeActivity extends Activity {
         applyTabStyle();
         buildTabBar();
         onConfig = keys -> {
+            if (keys.contains("launcher.theme") || keys.contains("launcher.pattern")) {
+                // Every view holds its colours: build them again, back in Prefs › Launcher.
+                reopenLauncherPrefs = true;
+                recreate();
+                return;
+            }
             apps.onConfig(keys);
             if (keys.contains("launcher.tabStyle")) applyTabStyle();
             if (keys.contains("launcher.tabs")) {
@@ -135,6 +144,11 @@ public class HomeActivity extends Activity {
         if (resume) {
             today.show(st.getInt("todayPart", TodayTab.START));
             files.restore(st.getString("filesPlace", null));
+        }
+        if (reopenLauncherPrefs) {
+            reopenLauncherPrefs = false;
+            start = SETTINGS;
+            settingsTab.openLauncher();
         }
         open(tabOf(getIntent(), start));
         showPart(getIntent());
@@ -342,7 +356,7 @@ public class HomeActivity extends Activity {
         if (which != TODAY) today.onHide();
         if (which != FAVORITES) favorites.onHide();
         for (int i = 0; i < buttons.length; i++) {
-            buttons[i].setAlpha(i == which ? 1f : 0.45f);
+            buttons[i].setAlpha(i == which || Ui.EINK ? 1f : 0.45f);   // e-ink: no grey, the bold label tells
             label(i).setTypeface(null, i == which ? android.graphics.Typeface.BOLD
                 : android.graphics.Typeface.NORMAL);
         }

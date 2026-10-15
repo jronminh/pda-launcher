@@ -121,6 +121,15 @@ Changes from upstream:
 - Package `org.pda.launcher`, so it can be installed next to the upstream app.
 - `targetSdk 28`, so the Files tab keeps legacy storage (docs/files.md).
 
+## Themes and backgrounds
+
+Prefs › Launcher › Theme: **OLED** (pure black, the default), **Dark**
+(charcoal, kinder to an LCD), **Light**, and **E-ink** (pure white and black,
+no grey to dither, no animation, thicker lines). Android's own dialogs and the
+status bar follow. Background: Plain, or a pattern drawn by the launcher, never
+a picture: Dots, Grid, Lines, Diagonal, Palm LCD; faint, behind the tiles,
+with the banners and the header plain for the words.
+
 ## Viewers
 
 Files, the Briefcase and Recent open text, images, audio and PDF in the

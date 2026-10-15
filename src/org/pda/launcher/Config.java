@@ -47,6 +47,8 @@ public final class Config {
         SCHEMA.put("editor.mono", new String[] { "bool", "false", "" });
         SCHEMA.put("today.folder", new String[] { "string", "Documents/PDA", "" });
         SCHEMA.put("launcher.resume", new String[] { "bool", "true", "" });
+        SCHEMA.put("launcher.theme", new String[] { "enum", "oled", "oled|dark|light|eink" });
+        SCHEMA.put("launcher.pattern", new String[] { "enum", "none", "none|dots|grid|lines|diagonal|palm" });
         SCHEMA.put("launcher.tabs", new String[] { "string", Tabs.DEFAULT, "" });
         SCHEMA.put("launcher.tabStyle", new String[] { "enum", "both", "both|icons|labels" });
         SCHEMA.put("apps.glance", new String[] { "bool", "true", "" });

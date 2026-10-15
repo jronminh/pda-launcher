@@ -62,8 +62,9 @@ public class LocationActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle b) {
+        org.pda.launcher.Ui.applyTheme(this);
         super.onCreate(b);
-        Config.prepare(this);
+        org.pda.launcher.Ui.paintWindow(this);
         String t = getIntent().getStringExtra(EXTRA_TREE);
         if (t == null) { finish(); return; }
         tree = Uri.parse(t);
@@ -87,7 +88,7 @@ public class LocationActivity extends Activity {
         list.setGrid(4, 0);
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return docs.size(); }
-            @Override public Drawable icon(int i) { return getDrawable(iconOf(docs.get(i))); }
+            @Override public Drawable icon(int i) { return Ui.icon(LocationActivity.this, iconOf(docs.get(i))); }
             @Override public String title(int i) { return docs.get(i).name; }
             @Override public String summary(int i) { return describe(docs.get(i)); }
             @Override public String mark(int i) { return null; }

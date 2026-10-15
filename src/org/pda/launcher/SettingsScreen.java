@@ -97,7 +97,6 @@ final class SettingsScreen {
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
         // The header: ‹ (inside a group), the title; on the tiles, search, sort and
         // the view button.
         tilePager = new Pager(act);
@@ -123,7 +122,7 @@ final class SettingsScreen {
         buildTiles();
         tiles.setBinder(new PagedView.Binder() {
             @Override public int count() { return shownTiles.size(); }
-            @Override public Drawable icon(int i) { return act.getDrawable(shownTiles.get(i).icon); }
+            @Override public Drawable icon(int i) { return Ui.icon(act, shownTiles.get(i).icon); }
             @Override public String title(int i) { return shownTiles.get(i).title; }
             @Override public String summary(int i) {
                 Supplier<String> s = shownTiles.get(i).summary;
@@ -167,6 +166,12 @@ final class SettingsScreen {
         this.scope = scope;
         pager.setPage(0);
         onShow();
+    }
+
+    /** Prefs › Launcher, as if opened from the tiles (Back returns to them). */
+    void openLauncher() {
+        open(LAUNCHER);
+        fromGeneral = true;
     }
 
     void onShow() {
@@ -267,6 +272,9 @@ final class SettingsScreen {
                     fromGeneral = true;
                     fromLauncher = true;
                 }));
+                e.add(choice("launcher.theme", "Theme", "oled:OLED (black)", "dark:Dark", "light:Light", "eink:E-ink"));
+                e.add(choice("launcher.pattern", "Background", "none:Plain", "dots:Dots", "grid:Grid",
+                        "lines:Lines", "diagonal:Diagonal", "palm:Palm LCD"));
                 e.add(toggle("launcher.resume", "Start where I left off"));
                 e.add(toggle("launcher.animations", "Animations"));
                 e.add(choice("launcher.tabStyle", "Tab bar", "both:Icons and labels", "icons:Icons", "labels:Labels"));

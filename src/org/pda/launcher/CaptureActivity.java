@@ -24,6 +24,7 @@ public class CaptureActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle b) {
+        Ui.applyColors(this);
         super.onCreate(b);
         Config.prepare(this);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);

@@ -92,7 +92,6 @@ final class TodayTab {
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
 
         // The header, as the other tabs': ‹ and the part's name inside a part; + and ⋮.
         addBtn = Ui.action(act, R.drawable.ic_add, "Add", this::addMenu);
@@ -121,7 +120,7 @@ final class TodayTab {
         final String[] names = { "Agenda", "Tasks", "Inbox", "Board", "Folder" };
         tiles.setBinder(new PagedView.Binder() {
             @Override public int count() { return names.length; }
-            @Override public Drawable icon(int i) { return act.getDrawable(icons[i]); }
+            @Override public Drawable icon(int i) { return Ui.icon(act, icons[i]); }
             @Override public String title(int i) { return names[i]; }
             @Override public String summary(int i) { return tileState[i]; }
             @Override public String mark(int i) { return null; }
@@ -150,7 +149,7 @@ final class TodayTab {
         taskList.setBinder(new PagedView.Binder() {
             @Override public int count() { return tasks.size(); }
             @Override public Drawable icon(int i) {
-                return act.getDrawable(tasks.get(i).done ? R.drawable.ic_task_done : R.drawable.ic_task);
+                return Ui.icon(act, tasks.get(i).done ? R.drawable.ic_task_done : R.drawable.ic_task);
             }
             @Override public String title(int i) { return tasks.get(i).text; }
             @Override public String summary(int i) { return taskDetails(tasks.get(i)); }
@@ -171,7 +170,7 @@ final class TodayTab {
         noteList.setMode(PagedView.DETAILS);
         noteList.setBinder(new PagedView.Binder() {
             @Override public int count() { return notes.size(); }
-            @Override public Drawable icon(int i) { return act.getDrawable(R.drawable.ic_inbox); }
+            @Override public Drawable icon(int i) { return Ui.icon(act, R.drawable.ic_inbox); }
             @Override public String title(int i) { return notes.get(i).text; }
             @Override public String summary(int i) { return notes.get(i).when; }
             @Override public String mark(int i) { return null; }

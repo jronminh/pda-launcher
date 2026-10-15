@@ -132,7 +132,6 @@ public final class FilesTab {
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
 
         // The header: ‹ (when there is a place to go back to), search, sort, the
         // view, and the menu; a selection shows ✕ instead.
@@ -174,7 +173,7 @@ public final class FilesTab {
             @Override public int count() { return items.size(); }
             @Override public Drawable icon(int i) {
                 Item it = items.get(i);
-                return act.getDrawable(it.root != null ? it.root.icon : iconOf(it.file));
+                return Ui.icon(act, it.root != null ? it.root.icon : iconOf(it.file));
             }
             @Override public String title(int i) {
                 Item it = items.get(i);

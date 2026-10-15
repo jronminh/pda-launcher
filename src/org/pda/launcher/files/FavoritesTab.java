@@ -75,7 +75,6 @@ public final class FavoritesTab {
 
         root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
         pager = new Pager(act);
         viewBtn = Ui.action(act, PagedView.iconOf(Config.get("favorites.view")), "View",
                 v -> PagedView.chooseMode(act, v, Config.get("favorites.view"),
@@ -102,7 +101,7 @@ public final class FavoritesTab {
         list.setBinder(new PagedView.Binder() {
             @Override public int count() { return onTiles() && overflow() ? list.perPage() : shown.size(); }
             @Override public Drawable icon(int i) {
-                return act.getDrawable(isMore(i) ? R.drawable.ic_more : iconOf(shown.get(i)));
+                return Ui.icon(act, isMore(i) ? R.drawable.ic_more : iconOf(shown.get(i)));
             }
             @Override public String title(int i) { return isMore(i) ? "More" : shown.get(i).title; }
             @Override public String summary(int i) {

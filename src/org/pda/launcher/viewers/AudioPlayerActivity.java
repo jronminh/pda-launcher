@@ -68,8 +68,9 @@ public class AudioPlayerActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle b) {
+        org.pda.launcher.Ui.applyTheme(this);
         super.onCreate(b);
-        Config.prepare(this);
+        org.pda.launcher.Ui.paintWindow(this);
         src = Viewers.sourceOf(this);
         if (src == null) return;
         File f = src.file != null ? src.file : new File(src.name);

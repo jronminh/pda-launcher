@@ -17,7 +17,7 @@ public final class Anim {
     private Anim() {}
 
     public static boolean on() {
-        return Config.getBool("launcher.animations");
+        return Config.getBool("launcher.animations") && !Ui.EINK;   // e-ink draws motion badly
     }
 
     /** New content from the side it comes from: {@code dir} > 0 from the right, < 0 from the left. */

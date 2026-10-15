@@ -223,6 +223,7 @@ public final class PopMenu {
 
         ImageView check = new ImageView(c);
         check.setImageResource(R.drawable.ic_check);
+        check.setColorFilter(Ui.TEXT);
         check.setVisibility(it.checked ? View.VISIBLE : View.INVISIBLE);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(Ui.dp(c, 20), Ui.dp(c, 20));
         cp.leftMargin = Ui.dp(c, 16);
