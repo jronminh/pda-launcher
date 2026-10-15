@@ -58,6 +58,13 @@ ICONS = {
                 + " M8.2,10.8l7.6,-4.6 M8.2,13.2l7.6,4.6",
     "paste":    "M8,4h-3v17h14v-17h-3 M8,3h8v3h-8z",
     "lock":     "M5,11h14v10h-14z M8,11v-4a4,4 0 0,1 8,0v4",
+    # The viewers
+    "play":     "M7,5l12,7l-12,7z",
+    "pause":    "M7,5h3v14h-3z M14,5h3v14h-3z",
+    "prev":     "M18,6l-9,6l9,6z M6,6v12",
+    "next":     "M6,6l9,6l-9,6z M18,6v12",
+    "eye":      "M2,12c3,-6 17,-6 20,0c-3,6 -17,6 -20,0z " + circle(12, 12, 3),
+    "info":     circle(12, 12, 9) + " M12,11v6 " + dot(12, 7.5),
     # Views
     "view_details": "M4,5h4v4h-4z M11,6h9 M11,8h6 M4,15h4v4h-4z M11,16h9 M11,18h6",
     "view_list":    "M4,6h2 M9,6h11 M4,12h2 M9,12h11 M4,18h2 M9,18h11",

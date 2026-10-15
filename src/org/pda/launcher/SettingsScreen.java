@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 final class SettingsScreen {
 
     /** What the screen shows: the tiles, or the launcher's settings. */
-    static final String GENERAL = "general", LAUNCHER = "launcher", TABS = "tabs";
+    static final String GENERAL = "general", LAUNCHER = "launcher", TABS = "tabs", VIEWERS = "viewers";
 
     private final Activity act;
     private final LinearLayout root;
@@ -208,6 +208,7 @@ final class SettingsScreen {
         // The launcher's own: their settings open here.
         tileList.add(new Tile(R.drawable.ic_home, "Launcher",
                 () -> "Home button: " + Tabs.NAMES[Math.max(0, Tabs.idOf(Config.get("launcher.homeTab")))], () -> openGroup(LAUNCHER)));
+        tileList.add(new Tile(R.drawable.ic_eye, "Viewers", this::viewersSummary, () -> openGroup(VIEWERS)));
         // Android's: each opens its screen.
         tileList.add(android(R.drawable.ic_wifi, "Wi-Fi", this::wifiState, Settings.ACTION_WIFI_SETTINGS));
         tileList.add(android(R.drawable.ic_bluetooth, "Bluetooth", this::bluetoothState, Settings.ACTION_BLUETOOTH_SETTINGS));
@@ -287,6 +288,13 @@ final class SettingsScreen {
                         new Intent(Settings.ACTION_HOME_SETTINGS)));
                 e.add(link("App info", "PDA Launcher " + HomeActivity.versionName(act), appDetails()));
                 break;
+            case VIEWERS:
+                // Per kind: the launcher's own viewer, or the app Android picks.
+                e.add(choice("open.text", "Text files", "builtin:Built-in editor", "system:System app"));
+                e.add(choice("open.image", "Images", "builtin:Built-in viewer", "system:System app"));
+                e.add(choice("open.audio", "Audio", "builtin:Built-in player", "system:System app"));
+                e.add(choice("open.pdf", "PDF", "builtin:Built-in reader", "system:System app"));
+                break;
             case TABS:
                 // Each tab: tap for on or off, up, down (Prefs stays on: the way back here).
                 for (final int id : Tabs.order()) {
@@ -334,6 +342,17 @@ final class SettingsScreen {
             out[i] = Tabs.KEYS[i] + ":" + Tabs.NAMES[i] + (Tabs.on(i) ? "" : " (off)");
         }
         return out;
+    }
+
+    /** "Built-in: Text, Images" or "All system apps". */
+    private String viewersSummary() {
+        StringBuilder sb = new StringBuilder();
+        String[] keys = { "text", "image", "audio", "pdf" }, names = { "Text", "Images", "Audio", "PDF" };
+        for (int i = 0; i < keys.length; i++) {
+            if (!Config.get("open." + keys[i]).equals("builtin")) continue;
+            sb.append(sb.length() == 0 ? "Built-in: " : ", ").append(names[i]);
+        }
+        return sb.length() == 0 ? "All system apps" : sb.toString();
     }
 
     private String tabsSummary() {

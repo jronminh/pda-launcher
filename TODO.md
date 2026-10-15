@@ -108,6 +108,15 @@ Open the common kinds inside the launcher, in its look (black, paged, line
 icons), instead of handing every file to another app. "Open with…" stays in
 the file's menu, and a setting chooses built-in or the system's app per kind.
 
+Done, a first simple version (Prefs › Viewers, per kind; `viewers/`): text
+editor (save atomically, wrap, monospace, revert; over 2 MB or binary goes to
+the system's app), image viewer (fitted, pinch/double-tap zoom, swipe through
+the folder, EXIF rotation), audio player (the folder as the queue, cover,
+seek, focus; stops when closed), PDF reader (PdfRenderer, ‹ n/count ›, swipe,
+zoom). Each opens in its own task. Left from the list below: find, pages in
+the editor; rotate/share/delete in images; a foreground service, notification,
+media session and sleep timer for audio; video and archives.
+
 - **Text editor:** plain text, .md, .json, .log, .sh, .conf. Open, edit, save
   (atomically, through FileOps so Favorites and MediaStore follow), find, wrap
   on/off, a monospace option; refuse files too large to hold (say over 2 MB)

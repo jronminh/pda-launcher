@@ -740,8 +740,10 @@ public final class FilesTab {
         open(act, f);
     }
 
-    /** Open a file in the app that handles its type. */
+    /** Open a file: in a built-in viewer if its kind is set so (Prefs › Viewers), else
+     *  in the app that handles its type. */
     static void open(Context c, File f) {
+        if (org.pda.launcher.viewers.Viewers.open(c, f)) return;
         Intent i = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(FileShare.linkFor(c, f), FileShare.mimeOf(f))
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);

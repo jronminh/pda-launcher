@@ -38,6 +38,13 @@ public final class Config {
     static {
         SCHEMA.put("launcher.homeTab", new String[] { "enum", "apps", "apps|favorites|files|today|settings" });
         SCHEMA.put("launcher.animations", new String[] { "bool", "true", "" });
+        // How a file opens, per kind: the launcher's own viewer, or the system's app.
+        SCHEMA.put("open.text", new String[] { "enum", "builtin", "builtin|system" });
+        SCHEMA.put("open.image", new String[] { "enum", "builtin", "builtin|system" });
+        SCHEMA.put("open.audio", new String[] { "enum", "builtin", "builtin|system" });
+        SCHEMA.put("open.pdf", new String[] { "enum", "builtin", "builtin|system" });
+        SCHEMA.put("editor.wrap", new String[] { "bool", "true", "" });
+        SCHEMA.put("editor.mono", new String[] { "bool", "false", "" });
         SCHEMA.put("today.folder", new String[] { "string", "Documents/PDA", "" });
         SCHEMA.put("launcher.resume", new String[] { "bool", "true", "" });
         SCHEMA.put("launcher.tabs", new String[] { "string", Tabs.DEFAULT, "" });

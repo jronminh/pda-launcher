@@ -37,7 +37,7 @@ public final class FileShare extends ContentProvider {
      * provider), and Termux was, twice. Only files MediaStore does not know (hidden
      * folders, say) still go through this provider.
      */
-    static Uri linkFor(Context c, File f) {
+    public static Uri linkFor(Context c, File f) {
         Uri media = mediaUri(c, f);
         return media != null ? media : uriFor(f);
     }
@@ -68,7 +68,7 @@ public final class FileShare extends ContentProvider {
                 .encodedPath(Uri.encode(f.getAbsolutePath(), "/")).build();
     }
 
-    static String mimeOf(File f) {
+    public static String mimeOf(File f) {
         String name = f.getName();
         int dot = name.lastIndexOf('.');
         if (dot < 0) return "application/octet-stream";

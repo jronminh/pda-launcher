@@ -97,6 +97,21 @@ Changes from upstream:
 - Package `org.pda.launcher`, so it can be installed next to the upstream app.
 - `targetSdk 28`, so the Files tab keeps legacy storage (docs/files.md).
 
+## Viewers
+
+Files, the Briefcase and Recent open text, images, audio and PDF in the
+launcher's own viewers, each in its own task (Home leaves it in Recents):
+
+- *Text*: edit and save (atomically), ⋮ for wrap, monospace, revert; asks
+  before leaving changes unsaved. Over 2 MB or binary: the system's app.
+- *Images*: fitted, pinch or double-tap to zoom, swipe for the folder's next.
+- *Audio*: the folder from the file tapped, cover, seek, previous/next; plays
+  on behind other apps, stops when closed.
+- *PDF*: a page at a time, ‹ › or a swipe, pinch to zoom.
+
+Prefs › Viewers chooses, per kind, the built-in one or the system's app; a
+file's ⋮ › Open with… always offers the others.
+
 ## Icons
 
 Every icon is a white line drawing in one style (24 x 24, stroke 1.5, round
