@@ -95,9 +95,7 @@ public final class FavoritesTab {
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
-        banner = new LinearLayout(act);
-        banner.setOrientation(LinearLayout.VERTICAL);
-        banner.setPadding(Ui.dp(act, 16), Ui.dp(act, 10), Ui.dp(act, 16), Ui.dp(act, 10));
+        banner = Ui.banner(act);
         root.addView(banner);
 
         list = new PagedView(act, pager);
@@ -241,21 +239,13 @@ public final class FavoritesTab {
                 apps++;
             }
         }
-        TextView t = new TextView(act);
-        t.setText(items.size() + (items.size() == 1 ? " item" : " items"));
-        t.setTextColor(Ui.TEXT);
-        t.setTextSize(18);
-        banner.addView(t);
+        banner.addView(Ui.bannerTitle(act, items.size() + (items.size() == 1 ? " item" : " items")));
         StringBuilder sb = new StringBuilder();
         count(sb, files, "file");
         count(sb, folders, "folder");
         count(sb, links, "link");
         count(sb, apps, "app or shortcut", "apps or shortcuts");
-        TextView d = new TextView(act);
-        d.setText(sb);
-        d.setTextColor(Ui.DIM);
-        d.setTextSize(13);
-        banner.addView(d);
+        banner.addView(Ui.bannerLine(act, sb));
     }
 
     private static void count(StringBuilder sb, int n, String one) {

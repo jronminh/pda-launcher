@@ -115,9 +115,7 @@ final class SettingsScreen {
         root.addView(header.view());
         root.addView(Ui.divider(act));
 
-        banner = new LinearLayout(act);
-        banner.setOrientation(LinearLayout.VERTICAL);
-        banner.setPadding(Ui.dp(act, 16), Ui.dp(act, 10), Ui.dp(act, 16), Ui.dp(act, 10));
+        banner = Ui.banner(act);
         banner.setOnClickListener(v -> start(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)));
         root.addView(banner);
 
@@ -244,24 +242,13 @@ final class SettingsScreen {
         banner.removeAllViews();
         String name = Settings.Global.getString(act.getContentResolver(), Settings.Global.DEVICE_NAME);
         if (name == null || name.isEmpty()) name = Build.MODEL;
-        TextView n = new TextView(act);
-        n.setText(name);
-        n.setTextColor(Ui.TEXT);
-        n.setTextSize(18);
-        banner.addView(n);
+        banner.addView(Ui.bannerTitle(act, name));
         String maker = Build.MANUFACTURER.substring(0, 1).toUpperCase(Locale.ROOT) + Build.MANUFACTURER.substring(1);
-        banner.addView(dim(maker + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
-                + " · PDA Launcher " + HomeActivity.versionName(act)));
+        banner.addView(Ui.bannerLine(act, maker + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
+                + " · Launcher " + HomeActivity.versionName(act)));
     }
 
 
-    private TextView dim(String text) {
-        TextView t = new TextView(act);
-        t.setText(text);
-        t.setTextColor(Ui.DIM);
-        t.setTextSize(13);
-        return t;
-    }
 
     // --- a group's rows ------------------------------------------------------------------
 

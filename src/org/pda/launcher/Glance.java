@@ -18,7 +18,6 @@ import android.provider.CalendarContract;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -27,9 +26,9 @@ import android.widget.TextView;
 import java.util.Date;
 
 /**
- * The glance line over the Apps tab: the time on the left; on the right the
- * date, the next calendar event (if asked for), the next alarm and the battery
- * (with the time to full while charging). Each part opens what it tells of: the
+ * The glance line over the Applications tab, a banner as every tab's: the time
+ * and the date; the next alarm and the battery (with the time to full while
+ * charging); the next calendar event (if asked for). Each part opens what it tells of: the
  * time the Clock's alarms, the date the Today tab, the event the Calendar, the battery
  * Android's battery screen. It follows the minute, the battery, the alarms and
  * the calendar while the launcher is on screen.
@@ -61,43 +60,27 @@ final class Glance {
 
     Glance(Activity act, Runnable openToday) {
         this.act = act;
-        root = new LinearLayout(act);
-        root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(Ui.dp(act, 16), Ui.dp(act, 8), Ui.dp(act, 16), Ui.dp(act, 8));
-
-        time = new TextView(act);
-        time.setTextColor(Ui.TEXT);
-        time.setTextSize(30);
+        // The tabs' banner: the time and the date on the first line, then the
+        // alarm and the battery, then the next event when there is one.
+        root = Ui.banner(act);
+        LinearLayout first = new LinearLayout(act);
+        time = Ui.bannerTitle(act, "");
         time.setOnClickListener(v -> start(new Intent(AlarmClock.ACTION_SHOW_ALARMS)));
-        root.addView(time);
-
-        LinearLayout right = new LinearLayout(act);
-        right.setOrientation(LinearLayout.VERTICAL);
-        right.setGravity(Gravity.END);
-        date = line(v -> openToday.run());   // the day in full: the Today tab
-        event = line(v -> openCalendar(eventStart > 0 ? eventStart : System.currentTimeMillis()));
-        event.setTextColor(Ui.TEXT);
-        status = line(v -> start(new Intent(Intent.ACTION_POWER_USAGE_SUMMARY)));
-        right.addView(date);
-        right.addView(event);
-        right.addView(status);
-        root.addView(right, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        first.addView(time);
+        date = Ui.bannerTitle(act, "");
+        date.setOnClickListener(v -> openToday.run());   // the day: the Today tab
+        first.addView(date, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        root.addView(first);
+        status = Ui.bannerLine(act, "");
+        status.setOnClickListener(v -> start(new Intent(Intent.ACTION_POWER_USAGE_SUMMARY)));
+        root.addView(status);
+        event = Ui.bannerLine(act, "");
+        event.setOnClickListener(v -> openCalendar(eventStart > 0 ? eventStart : System.currentTimeMillis()));
+        root.addView(event);
     }
 
     View view() {
         return root;
-    }
-
-    private TextView line(View.OnClickListener click) {
-        TextView t = new TextView(act);
-        t.setTextColor(Ui.DIM);
-        t.setTextSize(13);
-        t.setSingleLine(true);
-        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        t.setGravity(Gravity.END);
-        t.setOnClickListener(click);
-        return t;
     }
 
     void onStart() {
@@ -140,8 +123,8 @@ final class Glance {
     void update() {
         long now = System.currentTimeMillis();
         time.setText(DateFormat.getTimeFormat(act).format(new Date(now)));
-        date.setText(DateUtils.formatDateTime(act, now, DateUtils.FORMAT_SHOW_WEEKDAY
-                | DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_NO_YEAR | DateUtils.FORMAT_ABBREV_ALL));
+        date.setText("  ·  " + DateUtils.formatDateTime(act, now, DateUtils.FORMAT_SHOW_WEEKDAY
+                | DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_NO_YEAR));
 
         StringBuilder s = new StringBuilder();
         AlarmManager am = (AlarmManager) act.getSystemService(Context.ALARM_SERVICE);

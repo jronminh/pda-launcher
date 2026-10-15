@@ -561,22 +561,16 @@ public final class FilesTab {
 
     /** The first screen's banner: how full shared storage is, and with what. */
     private View storageBanner() {
-        LinearLayout r = new LinearLayout(act);
-        r.setOrientation(LinearLayout.VERTICAL);
-        r.setPadding(Ui.dp(act, 16), Ui.dp(act, 12), Ui.dp(act, 16), Ui.dp(act, 12));
+        LinearLayout r = Ui.banner(act);
         long total = 0, free = 0;
         try {
             StatFs s = new StatFs(Roots.storage().getPath());
             total = s.getTotalBytes();
             free = s.getAvailableBytes();
         } catch (IllegalArgumentException ignore) {}
-        TextView t = new TextView(act);
-        t.setTextColor(Ui.TEXT);
-        t.setTextSize(15);
-        t.setText(Formatter.formatShortFileSize(act, total - free) + " used of "
+        r.addView(Ui.bannerTitle(act, Formatter.formatShortFileSize(act, total - free) + " used of "
                 + Formatter.formatShortFileSize(act, total) + " · "
-                + Formatter.formatShortFileSize(act, free) + " free");
-        r.addView(t);
+                + Formatter.formatShortFileSize(act, free) + " free"));
         // The bar: a white part for what is used, on a dark line.
         LinearLayout bar = new LinearLayout(act);
         bar.setBackgroundColor(Ui.LINE);
@@ -585,15 +579,12 @@ public final class FilesTab {
         float part = total > 0 ? (float) (total - free) / total : 0f;
         bar.setWeightSum(1f);
         bar.addView(used, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, part));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 4));
-        lp.topMargin = Ui.dp(act, 8);
-        lp.bottomMargin = Ui.dp(act, 8);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 3));
+        lp.topMargin = Ui.dp(act, 5);
+        lp.bottomMargin = Ui.dp(act, 5);
         r.addView(bar, lp);
         // By kind: images, videos, audio, documents (sizes and counts).
-        TextView k = new TextView(act);
-        k.setTextColor(Ui.DIM);
-        k.setTextSize(12);
-        k.setText(kinds == null ? "Counting…" : kindsText());
+        TextView k = Ui.bannerLine(act, kinds == null ? "Counting…" : kindsText());
         r.addView(k);
         if (kinds == null || android.os.SystemClock.uptimeMillis() - kindsAt > 30_000) {
             kindsAt = android.os.SystemClock.uptimeMillis();
@@ -608,16 +599,16 @@ public final class FilesTab {
         return r;
     }
 
+    /** One banner line: each kind with something in it, by size. */
     private String kindsText() {
         String[] names = { "Images", "Videos", "Audio", "Documents" };
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 4; i++) {
-            if (i == 2) sb.append('\n');
-            else if (i > 0) sb.append("   ·   ");
-            sb.append(names[i]).append(' ').append(Formatter.formatShortFileSize(act, kinds[i * 2]))
-              .append(" (").append(kinds[i * 2 + 1]).append(')');
+            if (kinds[i * 2 + 1] == 0) continue;
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(names[i]).append(' ').append(Formatter.formatShortFileSize(act, kinds[i * 2]));
         }
-        return sb.toString();
+        return sb.length() > 0 ? sb.toString() : "No images, videos, audio or documents";
     }
 
 

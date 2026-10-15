@@ -109,9 +109,7 @@ final class TodayTab {
         // The start: the banner (tap for the agenda) over the tiles, as Prefs.
         LinearLayout start = new LinearLayout(act);
         start.setOrientation(LinearLayout.VERTICAL);
-        banner = new LinearLayout(act);
-        banner.setOrientation(LinearLayout.VERTICAL);
-        banner.setPadding(Ui.dp(act, 16), Ui.dp(act, 10), Ui.dp(act, 16), Ui.dp(act, 10));
+        banner = Ui.banner(act);
         banner.setOnClickListener(v -> show(AGENDA));
         start.addView(banner);
         Pager tilePager = new Pager(act);
@@ -330,12 +328,8 @@ final class TodayTab {
         List<String[]> events = cal ? events(now) : new ArrayList<>();
 
         banner.removeAllViews();
-        TextView d = new TextView(act);
-        d.setText(DateUtils.formatDateTime(act, now, DateUtils.FORMAT_SHOW_WEEKDAY
-                | DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_YEAR));
-        d.setTextColor(Ui.TEXT);
-        d.setTextSize(18);
-        banner.addView(d);
+        banner.addView(Ui.bannerTitle(act, DateUtils.formatDateTime(act, now, DateUtils.FORMAT_SHOW_WEEKDAY
+                | DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_YEAR)));
         StringBuilder sb = new StringBuilder();
         AlarmManager am = (AlarmManager) act.getSystemService(Context.ALARM_SERVICE);
         AlarmManager.AlarmClockInfo alarm = am != null ? am.getNextAlarmClock() : null;
@@ -344,12 +338,7 @@ final class TodayTab {
             if (sb.length() > 0) sb.append(" · ");
             sb.append(events.isEmpty() ? "Nothing on the calendar" : events.size() + (events.size() == 1 ? " event" : " events") + " today");
         }
-        TextView l = new TextView(act);
-        l.setText(sb);
-        l.setTextColor(Ui.DIM);
-        l.setTextSize(13);
-        l.setVisibility(sb.length() > 0 ? View.VISIBLE : View.GONE);
-        banner.addView(l);
+        if (sb.length() > 0) banner.addView(Ui.bannerLine(act, sb));
 
         tileState[0] = !cal ? "Calendar not allowed" : events.isEmpty() ? "Nothing today"
                 : "Next: " + events.get(0)[0] + " " + events.get(0)[1];

@@ -26,6 +26,47 @@ public final class Ui {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics());
     }
 
+    // --- the banner: one size in every tab ---------------------------------------------
+
+    /** Every tab's banner is this high, whatever it holds. */
+    public static final int BANNER_DP = 80;
+
+    /** A banner: under the header, BANNER_DP high, a line of 18 sp over lines of 13 sp. */
+    public static LinearLayout banner(Context c) {
+        final int h = dp(c, BANNER_DP);
+        LinearLayout b = new LinearLayout(c) {
+            @Override protected void onMeasure(int w, int hs) {
+                super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
+            }
+        };
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        b.setPadding(dp(c, 16), dp(c, 8), dp(c, 16), dp(c, 8));
+        return b;
+    }
+
+    /** A banner's first line: white, 18 sp, one line. */
+    public static TextView bannerTitle(Context c, CharSequence text) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextColor(TEXT);
+        t.setTextSize(18);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        return t;
+    }
+
+    /** A banner's other line: dim, 13 sp, one line. */
+    public static TextView bannerLine(Context c, CharSequence text) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextColor(DIM);
+        t.setTextSize(13);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        return t;
+    }
+
     public static TextView title(Context c, String text) {
         TextView t = new TextView(c);
         t.setText(text);
